@@ -54,6 +54,21 @@ func (s *Service) Login(username string, scope Scope, deviceID *uint64) (string,
 	return token, user, err
 }
 
+// OrganizationName 查询指定组织编码对应的单位名称。
+func (s *Service) OrganizationName(orgCode string) (string, error) {
+	if orgCode == "" {
+		return "", nil
+	}
+	var org database.Organization
+	if err := s.db.Select("name").Where("code = ?", orgCode).First(&org).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return "", nil
+		}
+		return "", err
+	}
+	return org.Name, nil
+}
+
 // IssueAccessToken 为指定用户、设备和 scope 生成 JWT 访问令牌。
 func (s *Service) IssueAccessToken(userID uint64, deviceID *uint64, scope Scope) (string, error) {
 	now := time.Now().UTC()

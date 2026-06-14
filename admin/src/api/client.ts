@@ -2,16 +2,42 @@
 // Bearer 凭证，并解包后端统一的 { data } 响应结构，同时把后端错误消息暴露给页面展示。
 let token: string | null = localStorage.getItem('admin_token')
 
+export type CurrentUser = {
+  id: number
+  username: string
+  display_name: string
+  name: string
+  avatar_size: number
+  company_name: string
+}
+
 // setToken 保存登录成功后返回的管理员访问令牌。
 export function setToken(t: string) {
   token = t
   localStorage.setItem('admin_token', t)
 }
 
+// setCurrentUser 保存登录成功后返回的用户、公司和头像状态。
+export function setCurrentUser(user: CurrentUser) {
+  localStorage.setItem('admin_user', JSON.stringify(user))
+}
+
+// getCurrentUser 读取当前登录用户信息，用于顶部用户区展示。
+export function getCurrentUser(): CurrentUser | null {
+  const raw = localStorage.getItem('admin_user')
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as CurrentUser
+  } catch {
+    return null
+  }
+}
+
 // clearToken 清除本地登录态，用于退出登录或令牌失效后的清理。
 export function clearToken() {
   token = null
   localStorage.removeItem('admin_token')
+  localStorage.removeItem('admin_user')
 }
 
 // authHeaders 根据当前 token 生成请求头。
@@ -31,6 +57,16 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify(body || {})
+  })
+  return unwrap<T>(res)
+}
+
+// apiUpload 发送 multipart/form-data POST 请求，并返回后端 data 字段。
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData
   })
   return unwrap<T>(res)
 }

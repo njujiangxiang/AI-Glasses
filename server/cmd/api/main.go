@@ -13,11 +13,13 @@ import (
 	"aiglasses/server/internal/devices"
 	"aiglasses/server/internal/events"
 	"aiglasses/server/internal/httpapi"
+	"aiglasses/server/internal/organizations"
 	"aiglasses/server/internal/plans"
 	"aiglasses/server/internal/platform/database"
 	"aiglasses/server/internal/platform/seed"
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
+	"aiglasses/server/internal/users"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
@@ -47,9 +49,11 @@ func main() {
 		attachmentSvc,
 		defects.NewService(db),
 		devices.NewService(db),
+		organizations.NewService(db),
 		plans.NewService(db),
 		tasks.NewService(db, redisClient),
 		templates.NewService(db),
+		users.NewService(db),
 		scheduler,
 	)
 	r := gin.Default()

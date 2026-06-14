@@ -7,14 +7,29 @@
   <div v-else class="layout-default" :class="{ 'is-collapse': isCollapse }">
     <aside class="app-aside">
       <div class="app-logo">
-        <el-icon><Monitor /></el-icon>
-        <span v-show="!isCollapse">智能眼镜巡检</span>
+        <svg class="app-logo-icon" viewBox="0 0 32 18" aria-hidden="true">
+          <path d="M3 9.5c0-3.6 2.4-6.5 6-6.5h3.6c1.4 0 2.6.8 3.4 2 .8-1.2 2-2 3.4-2H23c3.6 0 6 2.9 6 6.5S26.6 16 23 16h-3.2c-2.3 0-4-1.8-4-4h-.6c0 2.2-1.7 4-4 4H9c-3.6 0-6-2.9-6-6.5Z" />
+          <path d="M15.2 8.2h1.6" />
+        </svg>
+        <span v-show="!isCollapse">智镜任务中台</span>
       </div>
       <el-menu router :collapse="isCollapse" :default-active="route.path" class="app-menu">
-        <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
-          <el-icon><component :is="item.icon" /></el-icon>
-          <template #title>{{ item.title }}</template>
-        </el-menu-item>
+        <template v-for="item in menuItems" :key="item.path">
+          <el-sub-menu v-if="item.children" :index="item.path">
+            <template #title>
+              <el-icon><component :is="item.icon" /></el-icon>
+              <span>{{ item.title }}</span>
+            </template>
+            <el-menu-item v-for="child in item.children" :key="child.path" :index="child.path">
+              <el-icon><component :is="child.icon" /></el-icon>
+              <template #title>{{ child.title }}</template>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-menu-item v-else :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.title }}</template>
+          </el-menu-item>
+        </template>
       </el-menu>
     </aside>
     <section class="app-body">
@@ -29,7 +44,11 @@
         </div>
         <el-dropdown trigger="click" @command="handleUserCommand">
           <span class="user-dropdown">
-            admin
+            <el-avatar :size="32" :src="currentUserAvatarUrl">{{ currentUserInitial }}</el-avatar>
+            <span class="user-meta">
+              <span class="user-name">{{ currentUserName }}</span>
+              <span class="user-role">{{ currentUserRole }}</span>
+            </span>
             <el-icon><ArrowDown /></el-icon>
           </span>
           <template #dropdown>
@@ -42,7 +61,7 @@
       </header>
       <div class="app-tabs">
         <el-tabs v-model="activeTab" type="card" closable @tab-change="changeTab" @tab-remove="removeTab">
-          <el-tab-pane v-for="tab in tabs" :key="tab.path" :label="tab.title" :name="tab.path">
+          <el-tab-pane v-for="tab in tabs" :key="tab.path" :label="tab.title" :name="tab.path" :closable="tab.path !== '/workbench'">
             <template #label>
               <span class="tab-label">{{ tab.title }}</span>
             </template>
@@ -64,15 +83,18 @@ import {
   ArrowDown,
   Bell,
   Calendar,
+  Collection,
   DataAnalysis,
   Document,
   Expand,
   Fold,
   Monitor,
+  OfficeBuilding,
   Setting,
-  Tickets
+  Tickets,
+  User
 } from '@element-plus/icons-vue'
-import { clearToken } from '@/api/client'
+import { clearToken, getCurrentUser } from '@/api/client'
 
 // route 和 router 用于同步当前路由、菜单选中态和多 Tab 导航。
 const route = useRoute()
@@ -81,17 +103,40 @@ const router = useRouter()
 const isCollapse = ref(false)
 // activeTab 保存当前选中的页面 Tab 路径。
 const activeTab = ref('')
-// tabs 保存用户已经打开的业务页面。
-const tabs = ref<{ path: string; title: string }[]>([])
+// tabs 保存用户已经打开的业务页面，工作台固定在首位且不可关闭。
+const tabs = ref<{ path: string; title: string }[]>([{ path: '/workbench', title: '工作台' }])
+type MenuItem = { path: string; title: string; icon: unknown; children?: MenuItem[] }
 // menuItems 是侧栏菜单和可打开 Tab 的唯一来源。
-const menuItems = [
+const menuItems: MenuItem[] = [
   { path: '/workbench', title: '工作台', icon: DataAnalysis },
   { path: '/templates', title: '巡检模板', icon: Document },
   { path: '/plans', title: '任务计划', icon: Calendar },
   { path: '/tasks', title: '任务管理', icon: Tickets },
   { path: '/defects', title: '缺陷管理', icon: Bell },
-  { path: '/devices', title: '设备管理', icon: Setting }
+  {
+    path: '/master-data',
+    title: '台账和主数据管理',
+    icon: Collection,
+    children: [
+      { path: '/devices', title: '设备管理', icon: Monitor }
+    ]
+  },
+  {
+    path: '/system',
+    title: '系统管理',
+    icon: Setting,
+    children: [
+      { path: '/organizations', title: '组织管理', icon: OfficeBuilding },
+      { path: '/users', title: '用户管理', icon: User }
+    ]
+  }
 ]
+const leafMenuItems = computed(() => menuItems.flatMap((item) => item.children || [item]))
+const currentUser = computed(() => getCurrentUser())
+const currentUserName = computed(() => currentUser.value?.name || currentUser.value?.display_name || currentUser.value?.username || 'admin')
+const currentUserRole = computed(() => currentUser.value?.company_name || '未设置公司')
+const currentUserInitial = computed(() => currentUserName.value.slice(0, 1))
+const currentUserAvatarUrl = computed(() => currentUser.value?.avatar_size ? `/api/admin/users/${currentUser.value.id}/avatar` : '')
 
 // currentTitle 根据路由元信息生成面包屑标题。
 const currentTitle = computed(() => String(route.meta.title || '工作台'))
@@ -101,7 +146,7 @@ watch(
   () => route.fullPath,
   () => {
     if (route.meta.public) return
-    const item = menuItems.find((menu) => menu.path === route.path)
+    const item = leafMenuItems.value.find((menu) => menu.path === route.path)
     if (!item) return
     activeTab.value = item.path
     if (!tabs.value.some((tab) => tab.path === item.path)) {
@@ -119,7 +164,7 @@ function changeTab(name: string | number) {
 // removeTab 关闭指定 Tab，并在关闭当前页时切换到相邻页面。
 function removeTab(name: string | number) {
   const path = String(name)
-  if (tabs.value.length === 1) return
+  if (path === '/workbench' || tabs.value.length === 1) return
   const index = tabs.value.findIndex((tab) => tab.path === path)
   tabs.value = tabs.value.filter((tab) => tab.path !== path)
   if (path === route.path) {

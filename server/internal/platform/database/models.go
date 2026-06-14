@@ -5,13 +5,32 @@ package database
 import "time"
 
 type User struct {
-	ID           uint64 `gorm:"primaryKey" json:"id"`
-	Username     string `gorm:"size:64;uniqueIndex;not null" json:"username"`
-	PasswordHash string `gorm:"size:255;not null" json:"-"`
-	DisplayName  string `gorm:"size:128" json:"display_name"`
-	Status       string `gorm:"size:32;index;not null" json:"status"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                uint64 `gorm:"primaryKey" json:"id"`
+	Username          string `gorm:"size:64;uniqueIndex;not null" json:"username"`
+	PasswordHash      string `gorm:"size:255;not null" json:"-"`
+	DisplayName       string `gorm:"size:128" json:"display_name"`
+	Name              string `gorm:"size:64;not null;default:''" json:"name"`
+	Gender            string `gorm:"size:8;not null;default:''" json:"gender"`
+	AvatarData        []byte `gorm:"type:longblob" json:"-"`
+	AvatarContentType string `gorm:"size:64;not null;default:''" json:"avatar_content_type"`
+	AvatarSize        int64  `gorm:"not null;default:0" json:"avatar_size"`
+	BirthYear         int    `gorm:"not null;default:0" json:"birth_year"`
+	BirthMonth        int    `gorm:"not null;default:0" json:"birth_month"`
+	IDCardNo          string `gorm:"size:32;index;not null;default:''" json:"id_card_no"`
+	OrgCode           string `gorm:"size:64;index;not null;default:''" json:"org_code"`
+	Status            string `gorm:"size:32;index;not null" json:"status"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+type Organization struct {
+	ID         uint64 `gorm:"primaryKey" json:"id"`
+	Code       string `gorm:"size:64;uniqueIndex;not null" json:"code"`
+	Name       string `gorm:"size:128;not null" json:"name"`
+	ParentCode string `gorm:"size:64;index;not null;default:''" json:"parent_code"`
+	Status     string `gorm:"size:32;index;not null" json:"status"`
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 type Role struct {

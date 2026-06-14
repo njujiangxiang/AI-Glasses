@@ -5,7 +5,7 @@ import "gorm.io/gorm"
 // AutoMigrate 执行 GORM 自动迁移，确保核心业务表结构存在。
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(
-		&User{}, &Role{}, &Permission{}, &UserRole{}, &RolePermission{},
+		&User{}, &Organization{}, &Role{}, &Permission{}, &UserRole{}, &RolePermission{},
 		&Team{}, &TeamMember{},
 		&Device{}, &DeviceSession{}, &DeviceAuditLog{},
 		&InspectionTemplate{}, &InspectionTemplateNode{},

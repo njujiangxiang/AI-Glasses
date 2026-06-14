@@ -76,6 +76,17 @@ html, body, #app {
   font-size: 20px;
 }
 
+.app-logo-icon {
+  width: 28px;
+  height: 18px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--el-color-primary);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .app-menu {
   border-right: none !important;
 }
@@ -127,10 +138,31 @@ html, body, #app {
 .user-dropdown {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   cursor: pointer;
   color: var(--el-text-color-primary);
   outline: none;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-role {
+  max-width: 160px;
+  overflow: hidden;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .app-tabs {

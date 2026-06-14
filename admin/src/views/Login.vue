@@ -16,14 +16,15 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { apiPost, setToken } from '@/api/client'
+import { apiPost, setCurrentUser, setToken } from '@/api/client'
 
 const username = ref('admin')
 const router = useRouter()
 // login 调用后台登录接口，保存 token 后进入工作台。
 async function login() {
-  const data = await apiPost<{ access_token: string }>('/api/admin/auth/login', { username: username.value })
+  const data = await apiPost<{ access_token: string; user: any; company_name: string }>('/api/admin/auth/login', { username: username.value })
   setToken(data.access_token)
+  setCurrentUser({ ...data.user, company_name: data.company_name || '' })
   ElMessage.success('登录成功')
   await router.push('/workbench')
 }

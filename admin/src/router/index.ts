@@ -7,6 +7,8 @@ import Plans from '@/views/Plans.vue'
 import Tasks from '@/views/Tasks.vue'
 import Defects from '@/views/Defects.vue'
 import Devices from '@/views/Devices.vue'
+import Organizations from '@/views/Organizations.vue'
+import Users from '@/views/Users.vue'
 import Login from '@/views/Login.vue'
 
 export default createRouter({
@@ -19,6 +21,8 @@ export default createRouter({
     { path: '/plans', component: Plans, meta: { title: '任务计划' } },
     { path: '/tasks', component: Tasks, meta: { title: '任务管理' } },
     { path: '/defects', component: Defects, meta: { title: '缺陷管理' } },
-    { path: '/devices', component: Devices, meta: { title: '设备管理' } }
+    { path: '/devices', component: Devices, meta: { title: '设备管理' } },
+    { path: '/organizations', component: Organizations, meta: { title: '组织管理' } },
+    { path: '/users', component: Users, meta: { title: '用户管理' } }
   ]
 })

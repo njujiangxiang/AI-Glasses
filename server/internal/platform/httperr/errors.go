@@ -18,6 +18,8 @@ const (
 	AttachmentOrphaned       ErrorCode = "ATTACHMENT_ORPHANED"
 	IdempotencyConflict      ErrorCode = "IDEMPOTENCY_CONFLICT"
 	RateLimited              ErrorCode = "RATE_LIMITED"
+	ValidationFailed         ErrorCode = "VALIDATION_FAILED"
+	ResourceNotFound         ErrorCode = "RESOURCE_NOT_FOUND"
 	InternalError            ErrorCode = "INTERNAL_ERROR"
 )
 
@@ -56,5 +58,7 @@ var catalog = map[ErrorCode]APIError{
 	AttachmentOrphaned:       {Code: AttachmentOrphaned, HTTPStatus: http.StatusGone, Retryable: true, UserAction: "upload_again"},
 	IdempotencyConflict:      {Code: IdempotencyConflict, HTTPStatus: http.StatusConflict, Retryable: true, UserAction: "retry_same_key_or_refresh"},
 	RateLimited:              {Code: RateLimited, HTTPStatus: http.StatusTooManyRequests, Retryable: true, UserAction: "retry_later"},
+	ValidationFailed:         {Code: ValidationFailed, HTTPStatus: http.StatusUnprocessableEntity, Retryable: false, UserAction: "fix_input"},
+	ResourceNotFound:         {Code: ResourceNotFound, HTTPStatus: http.StatusNotFound, Retryable: false, UserAction: "refresh_list"},
 	InternalError:            {Code: InternalError, HTTPStatus: http.StatusInternalServerError, Retryable: true, UserAction: "retry_or_contact_support"},
 }

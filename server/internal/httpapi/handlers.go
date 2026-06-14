@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -12,27 +13,31 @@ import (
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/devices"
 	"aiglasses/server/internal/events"
+	"aiglasses/server/internal/organizations"
 	"aiglasses/server/internal/plans"
 	"aiglasses/server/internal/platform/httperr"
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
+	"aiglasses/server/internal/users"
 	"github.com/gin-gonic/gin"
 )
 
 type Handler struct {
-	auth        *auth.Service
-	attachments *attachments.Service
-	defects     *defects.Service
-	devices     *devices.Service
-	plans       *plans.Service
-	tasks       *tasks.Service
-	templates   *templates.Service
-	scheduler   *events.Scheduler
+	auth          *auth.Service
+	attachments   *attachments.Service
+	defects       *defects.Service
+	devices       *devices.Service
+	organizations *organizations.Service
+	plans         *plans.Service
+	tasks         *tasks.Service
+	templates     *templates.Service
+	users         *users.Service
+	scheduler     *events.Scheduler
 }
 
 // NewHandler 创建 HTTP 处理器集合，并注入所有业务服务。
-func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, defectSvc *defects.Service, deviceSvc *devices.Service, planSvc *plans.Service, taskSvc *tasks.Service, templateSvc *templates.Service, scheduler *events.Scheduler) *Handler {
-	return &Handler{auth: authSvc, attachments: attachmentSvc, defects: defectSvc, devices: deviceSvc, plans: planSvc, tasks: taskSvc, templates: templateSvc, scheduler: scheduler}
+func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, defectSvc *defects.Service, deviceSvc *devices.Service, orgSvc *organizations.Service, planSvc *plans.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, scheduler *events.Scheduler) *Handler {
+	return &Handler{auth: authSvc, attachments: attachmentSvc, defects: defectSvc, devices: deviceSvc, organizations: orgSvc, plans: planSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, scheduler: scheduler}
 }
 
 // Register 注册公开接口、后台接口和眼镜端接口。
@@ -59,6 +64,21 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/devices", h.registerDevice)
 	admin.POST("/devices/:id/revoke", h.revokeDevice)
 	admin.POST("/devices/:id/disable-lost", h.disableLostDevice)
+	admin.GET("/organizations", h.listOrganizations)
+	admin.GET("/organizations/tree", h.organizationTree)
+	admin.POST("/organizations", h.createOrganization)
+	admin.POST("/organizations/:id/update", h.updateOrganization)
+	admin.POST("/organizations/:id/enable", h.enableOrganization)
+	admin.POST("/organizations/:id/disable", h.disableOrganization)
+	admin.POST("/organizations/:id/delete", h.deleteOrganization)
+	admin.GET("/users", h.listUsers)
+	admin.GET("/users/:id", h.getUser)
+	admin.POST("/users", h.createUser)
+	admin.POST("/users/:id/update", h.updateUser)
+	admin.POST("/users/:id/enable", h.enableUser)
+	admin.POST("/users/:id/disable", h.disableUser)
+	admin.POST("/users/:id/avatar", h.setUserAvatar)
+	admin.GET("/users/:id/avatar", h.getUserAvatar)
 
 	glasses := api.Group("/glasses", auth.Middleware(h.auth, auth.ScopeGlasses))
 	glasses.GET("/tasks", h.glassesTasks)
@@ -85,7 +105,12 @@ func (h *Handler) adminLogin(c *gin.Context) {
 		httperr.Respond(c, err)
 		return
 	}
-	httperr.OK(c, gin.H{"access_token": token, "user": user})
+	companyName, err := h.auth.OrganizationName(user.OrgCode)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"access_token": token, "user": user, "company_name": companyName})
 }
 
 // glassesLogin 处理眼镜端登录并返回携带设备 ID 的 glasses scope token。
@@ -361,6 +386,193 @@ func (h *Handler) disableLostDevice(c *gin.Context) {
 		return
 	}
 	httperr.OK(c, gin.H{"disabled": true})
+}
+
+// listOrganizations 查询单位组织列表。
+func (h *Handler) listOrganizations(c *gin.Context) {
+	result, err := h.organizations.List(c.Query("keyword"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// organizationTree 查询单位组织树。
+func (h *Handler) organizationTree(c *gin.Context) {
+	result, err := h.organizations.Tree()
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// createOrganization 创建单位组织。
+func (h *Handler) createOrganization(c *gin.Context) {
+	var input organizations.CreateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.organizations.Create(input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// updateOrganization 更新单位组织。
+func (h *Handler) updateOrganization(c *gin.Context) {
+	var input organizations.UpdateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.organizations.Update(idParam(c, "id"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// enableOrganization 启用单位组织。
+func (h *Handler) enableOrganization(c *gin.Context) {
+	if err := h.organizations.Enable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"enabled": true})
+}
+
+// disableOrganization 停用单位组织。
+func (h *Handler) disableOrganization(c *gin.Context) {
+	if err := h.organizations.Disable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"disabled": true})
+}
+
+// deleteOrganization 删除单位组织。
+func (h *Handler) deleteOrganization(c *gin.Context) {
+	if err := h.organizations.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// listUsers 查询后台用户列表。
+func (h *Handler) listUsers(c *gin.Context) {
+	result, err := h.users.List(users.ListQuery{
+		Keyword:  c.Query("keyword"),
+		OrgCode:  c.Query("org_code"),
+		Status:   c.Query("status"),
+		Page:     intQuery(c, "page", 1),
+		PageSize: intQuery(c, "page_size", 20),
+	})
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// getUser 查询后台用户详情。
+func (h *Handler) getUser(c *gin.Context) {
+	result, err := h.users.Get(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// createUser 创建后台用户。
+func (h *Handler) createUser(c *gin.Context) {
+	var input users.CreateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.users.Create(input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// updateUser 更新后台用户。
+func (h *Handler) updateUser(c *gin.Context) {
+	var input users.UpdateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.users.Update(idParam(c, "id"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// enableUser 启用后台用户。
+func (h *Handler) enableUser(c *gin.Context) {
+	if err := h.users.Enable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"enabled": true})
+}
+
+// disableUser 停用后台用户。
+func (h *Handler) disableUser(c *gin.Context) {
+	if err := h.users.Disable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"disabled": true})
+}
+
+// setUserAvatar 将用户头像保存到数据库。
+func (h *Handler) setUserAvatar(c *gin.Context) {
+	file, err := c.FormFile("avatar")
+	if err != nil {
+		httperr.Respond(c, httperr.New(httperr.ValidationFailed, "avatar is required"))
+		return
+	}
+	opened, err := file.Open()
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	defer opened.Close()
+	data, err := io.ReadAll(io.LimitReader(opened, users.MaxAvatarBytes+1))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	contentType := users.DetectContentType(data, file.Header.Get("Content-Type"))
+	if err := h.users.SetAvatar(idParam(c, "id"), data, contentType); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"uploaded": true})
+}
+
+// getUserAvatar 读取数据库中的用户头像。
+func (h *Handler) getUserAvatar(c *gin.Context) {
+	data, contentType, err := h.users.GetAvatar(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	c.Data(http.StatusOK, contentType, data)
 }
 
 // presignAttachment 处理证据附件预签名上传申请。
