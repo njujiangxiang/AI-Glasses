@@ -5,6 +5,8 @@ import Workbench from '@/views/Workbench.vue'
 import Templates from '@/views/Templates.vue'
 import Plans from '@/views/Plans.vue'
 import Tasks from '@/views/Tasks.vue'
+import TaskSheets from '@/views/TaskSheets.vue'
+import TaskSheetForm from '@/views/TaskSheetForm.vue'
 import Defects from '@/views/Defects.vue'
 import Devices from '@/views/Devices.vue'
 import Organizations from '@/views/Organizations.vue'
@@ -20,6 +22,9 @@ export default createRouter({
     { path: '/templates', component: Templates, meta: { title: '巡检模板' } },
     { path: '/plans', component: Plans, meta: { title: '任务计划' } },
     { path: '/tasks', component: Tasks, meta: { title: '任务管理' } },
+    { path: '/tasksheets', component: TaskSheets, meta: { title: '作业任务单' } },
+    { path: '/tasksheets/create', component: TaskSheetForm, meta: { title: '新增任务单' }, props: { mode: 'create' } },
+    { path: '/tasksheets/:id/:mode(edit|view)', component: TaskSheetForm, meta: { title: '任务单详情' } },
     { path: '/defects', component: Defects, meta: { title: '缺陷管理' } },
     { path: '/devices', component: Devices, meta: { title: '设备管理' } },
     { path: '/organizations', component: Organizations, meta: { title: '组织管理' } },

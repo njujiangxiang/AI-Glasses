@@ -13,7 +13,7 @@
         </svg>
         <span v-show="!isCollapse">智镜任务中台</span>
       </div>
-      <el-menu router :collapse="isCollapse" :default-active="route.path" class="app-menu">
+      <el-menu router :collapse="isCollapse" :default-active="activeMenu" class="app-menu">
         <template v-for="item in menuItems" :key="item.path">
           <el-sub-menu v-if="item.children" :index="item.path">
             <template #title>
@@ -112,6 +112,7 @@ const menuItems: MenuItem[] = [
   { path: '/templates', title: '巡检模板', icon: Document },
   { path: '/plans', title: '任务计划', icon: Calendar },
   { path: '/tasks', title: '任务管理', icon: Tickets },
+  { path: '/tasksheets', title: '作业任务单', icon: Document },
   { path: '/defects', title: '缺陷管理', icon: Bell },
   {
     path: '/master-data',
@@ -137,6 +138,7 @@ const currentUserName = computed(() => currentUser.value?.name || currentUser.va
 const currentUserRole = computed(() => currentUser.value?.company_name || '未设置公司')
 const currentUserInitial = computed(() => currentUserName.value.slice(0, 1))
 const currentUserAvatarUrl = computed(() => currentUser.value?.avatar_size ? `/api/admin/users/${currentUser.value.id}/avatar` : '')
+const activeMenu = computed(() => route.path.startsWith('/tasksheets') ? '/tasksheets' : route.path)
 
 // currentTitle 根据路由元信息生成面包屑标题。
 const currentTitle = computed(() => String(route.meta.title || '工作台'))
@@ -146,15 +148,27 @@ watch(
   () => route.fullPath,
   () => {
     if (route.meta.public) return
-    const item = leafMenuItems.value.find((menu) => menu.path === route.path)
-    if (!item) return
-    activeTab.value = item.path
-    if (!tabs.value.some((tab) => tab.path === item.path)) {
-      tabs.value.push({ path: item.path, title: item.title })
+    const tab = tabForRoute()
+    if (!tab) return
+    activeTab.value = tab.path
+    if (!tabs.value.some((item) => item.path === tab.path)) {
+      tabs.value.push(tab)
     }
   },
   { immediate: true, flush: 'post' }
 )
+
+// tabForRoute 根据当前路由生成可打开的业务 Tab，动态表单路由按单据模式命名。
+function tabForRoute() {
+  if (route.path.startsWith('/tasksheets/') && route.path !== '/tasksheets') {
+    const mode = String(route.params.mode || 'create')
+    const prefix = mode === 'view' ? '查看' : mode === 'edit' ? '编辑' : '新增'
+    const code = route.params.id ? `TASK-${String(route.params.id).padStart(3, '0')}` : '任务单'
+    return { path: route.fullPath, title: mode === 'create' ? '新增任务单' : `${prefix}：${code}` }
+  }
+  const item = leafMenuItems.value.find((menu) => menu.path === route.path)
+  return item ? { path: item.path, title: item.title } : null
+}
 
 // changeTab 在用户点击 Tab 时切换到对应路由。
 function changeTab(name: string | number) {
