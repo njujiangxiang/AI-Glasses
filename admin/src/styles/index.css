@@ -1,0 +1,268 @@
+/*
+  后台全局主题和布局样式。配色采用国网绿，应用壳层参考 likeadmin 的可收缩侧栏和
+  多 Tab 导航，表格和卡片样式用于保持各复用页面的视觉一致性。
+*/
+:root {
+  --sgcc-green: #007a3d;
+  --sgcc-green-hover: #009a57;
+  --sgcc-green-active: #006b35;
+  --sgcc-green-light-3: #4db27d;
+  --sgcc-green-light-5: #80c99e;
+  --sgcc-green-light-7: #b3dfc5;
+  --sgcc-green-light-9: #e6f4ec;
+  --el-color-primary: var(--sgcc-green);
+  --el-color-primary-dark-2: var(--sgcc-green-active);
+  --el-color-primary-light-3: var(--sgcc-green-light-3);
+  --el-color-primary-light-5: var(--sgcc-green-light-5);
+  --el-color-primary-light-7: var(--sgcc-green-light-7);
+  --el-color-primary-light-8: #ccead8;
+  --el-color-primary-light-9: var(--sgcc-green-light-9);
+  --el-menu-active-color: var(--sgcc-green);
+  --el-menu-hover-bg-color: var(--sgcc-green-light-9);
+  --el-menu-item-height: 46px;
+  --aside-width: 200px;
+  --aside-collapse-width: 64px;
+  --navbar-height: 50px;
+  --tabs-height: 40px;
+  --table-header-bg-color: #f5faf7;
+  --el-font-size-base: 14px;
+  --el-bg-color-page: #f3f7f5;
+  --el-text-color-primary: #26352d;
+  --el-text-color-regular: #53635a;
+  --el-text-color-secondary: #8a9a91;
+  --el-border-color-lighter: #dfe9e3;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--el-text-color-primary);
+  background: var(--el-bg-color-page);
+}
+
+.layout-default {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-aside {
+  width: var(--aside-width);
+  background: #ffffff;
+  border-right: 1px solid var(--el-border-color-lighter);
+  transition: width 0.2s ease;
+}
+
+.layout-default.is-collapse .app-aside {
+  width: var(--aside-collapse-width);
+}
+
+.app-logo {
+  height: var(--navbar-height);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.app-logo .el-icon {
+  color: var(--el-color-primary);
+  font-size: 20px;
+}
+
+.app-menu {
+  border-right: none !important;
+}
+
+.app-menu:not(.el-menu--collapse) {
+  width: var(--aside-width);
+}
+
+.app-menu .el-menu-item.is-active {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  border-right: 3px solid var(--el-color-primary);
+  font-weight: 500;
+}
+
+.app-menu .el-menu-item:hover {
+  background: var(--el-color-primary-light-9);
+}
+
+.app-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  height: var(--navbar-height);
+  background: #ffffff;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 0 8px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.collapse-button {
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+}
+
+.user-dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--el-text-color-primary);
+  outline: none;
+}
+
+.app-tabs {
+  height: var(--tabs-height);
+  background: #ffffff;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  padding: 6px 8px 0;
+  box-sizing: border-box;
+}
+
+.app-tabs .el-tabs,
+.app-tabs .el-tabs__header,
+.app-tabs .el-tabs__nav-wrap,
+.app-tabs .el-tabs__nav-scroll {
+  height: 100%;
+}
+
+.app-tabs .el-tabs__header {
+  margin: 0;
+  border-bottom: none;
+}
+
+.app-tabs .el-tabs__nav-wrap::after {
+  display: none;
+}
+
+.app-tabs .el-tabs__nav {
+  gap: 6px;
+  border: none !important;
+}
+
+.app-tabs .el-tabs__item {
+  position: relative;
+  height: 30px;
+  line-height: 30px;
+  padding: 0 12px !important;
+  border: 1px solid var(--el-border-color-lighter) !important;
+  border-radius: 3px 3px 0 0;
+  background: #f7f8fa;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  transition: color 0.2s, background-color 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.app-tabs .el-tabs__item + .el-tabs__item {
+  margin-left: 0 !important;
+}
+
+.app-tabs .el-tabs__item:hover {
+  color: var(--el-color-primary);
+}
+
+.app-tabs .el-tabs__item.is-active {
+  color: var(--el-color-primary);
+  background: var(--el-color-primary-light-9);
+  border-color: var(--el-color-primary-light-3) !important;
+  box-shadow: inset 0 3px 0 var(--el-color-primary);
+  font-weight: 500;
+}
+
+.app-tabs .el-tabs__item.is-active::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--el-color-primary);
+}
+
+.app-tabs .el-tabs__item .is-icon-close {
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  border-radius: 50%;
+}
+
+.app-tabs .el-tabs__item .is-icon-close:hover {
+  color: #ffffff;
+  background: var(--el-color-primary);
+}
+
+.tab-label {
+  vertical-align: middle;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-value {
+  font-size: 34px;
+  line-height: 44px;
+  font-weight: 500;
+}
+
+.stat-label {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.el-card {
+  border: none !important;
+}
+
+.el-table {
+  --el-table-header-text-color: var(--el-text-color-primary);
+  --el-table-header-bg-color: var(--table-header-bg-color);
+  font-size: var(--el-font-size-base);
+}
+
+.el-table thead th {
+  font-weight: 400;
+}
