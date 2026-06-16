@@ -33,6 +33,19 @@ type Organization struct {
 	UpdatedAt  time.Time
 }
 
+type BusinessCode struct {
+	ID           uint64 `gorm:"primaryKey;comment:业务编码配置ID，系统内部主键" json:"id"`
+	Name         string `gorm:"size:128;not null;comment:编码名称，用于后台展示规则用途" json:"name"`
+	Code         string `gorm:"size:64;uniqueIndex;not null;comment:业务代码，系统内唯一，例如TK" json:"code"`
+	DateFormat   string `gorm:"size:32;not null;comment:日期格式，首版仅支持yyyyMMdd" json:"date_format"`
+	SeqPadding   int    `gorm:"not null;comment:流水号位数，例如4表示0001" json:"seq_padding"`
+	Separator    string `gorm:"size:8;not null;default:'';comment:分隔符，例如-，不使用时为空" json:"separator"`
+	UseSeparator bool   `gorm:"not null;default:false;comment:是否在代码、日期、流水号之间使用分隔符" json:"use_separator"`
+	Status       string `gorm:"size:32;not null;default:'active';comment:编码状态：active启用，disabled停用" json:"status"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
 type Role struct {
 	ID        uint64 `gorm:"primaryKey" json:"id"`
 	Name      string `gorm:"size:64;uniqueIndex;not null" json:"name"`

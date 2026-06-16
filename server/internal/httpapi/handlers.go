@@ -10,6 +10,7 @@ import (
 
 	"aiglasses/server/internal/attachments"
 	"aiglasses/server/internal/auth"
+	"aiglasses/server/internal/businesscodes"
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/devices"
 	"aiglasses/server/internal/events"
@@ -25,6 +26,7 @@ import (
 type Handler struct {
 	auth          *auth.Service
 	attachments   *attachments.Service
+	businessCodes *businesscodes.Service
 	defects       *defects.Service
 	devices       *devices.Service
 	organizations *organizations.Service
@@ -36,8 +38,8 @@ type Handler struct {
 }
 
 // NewHandler 创建 HTTP 处理器集合，并注入所有业务服务。
-func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, defectSvc *defects.Service, deviceSvc *devices.Service, orgSvc *organizations.Service, planSvc *plans.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, scheduler *events.Scheduler) *Handler {
-	return &Handler{auth: authSvc, attachments: attachmentSvc, defects: defectSvc, devices: deviceSvc, organizations: orgSvc, plans: planSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, scheduler: scheduler}
+func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, businessCodeSvc *businesscodes.Service, defectSvc *defects.Service, deviceSvc *devices.Service, orgSvc *organizations.Service, planSvc *plans.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, scheduler *events.Scheduler) *Handler {
+	return &Handler{auth: authSvc, attachments: attachmentSvc, businessCodes: businessCodeSvc, defects: defectSvc, devices: deviceSvc, organizations: orgSvc, plans: planSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, scheduler: scheduler}
 }
 
 // Register 注册公开接口、后台接口和眼镜端接口。
@@ -64,6 +66,13 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/devices", h.registerDevice)
 	admin.POST("/devices/:id/revoke", h.revokeDevice)
 	admin.POST("/devices/:id/disable-lost", h.disableLostDevice)
+	admin.GET("/business-codes", h.listBusinessCodes)
+	admin.POST("/business-codes", h.createBusinessCode)
+	admin.POST("/business-codes/generate", h.generateBusinessCode)
+	admin.POST("/business-codes/:id/update", h.updateBusinessCode)
+	admin.POST("/business-codes/:id/enable", h.enableBusinessCode)
+	admin.POST("/business-codes/:id/disable", h.disableBusinessCode)
+	admin.POST("/business-codes/:id/delete", h.deleteBusinessCode)
 	admin.GET("/organizations", h.listOrganizations)
 	admin.GET("/organizations/tree", h.organizationTree)
 	admin.POST("/organizations", h.createOrganization)
@@ -95,12 +104,13 @@ func (h *Handler) Register(r *gin.Engine) {
 func (h *Handler) adminLogin(c *gin.Context) {
 	var body struct {
 		Username string `json:"username"`
+		Password string `json:"password"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	token, user, err := h.auth.Login(body.Username, auth.ScopeAdmin, nil)
+	token, user, err := h.auth.Login(body.Username, body.Password, auth.ScopeAdmin, nil)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -117,6 +127,7 @@ func (h *Handler) adminLogin(c *gin.Context) {
 func (h *Handler) glassesLogin(c *gin.Context) {
 	var body struct {
 		Username string `json:"username"`
+		Password string `json:"password"`
 		DeviceID uint64 `json:"device_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -124,12 +135,96 @@ func (h *Handler) glassesLogin(c *gin.Context) {
 		return
 	}
 	deviceID := body.DeviceID
-	token, user, err := h.auth.Login(body.Username, auth.ScopeGlasses, &deviceID)
+	token, user, err := h.auth.Login(body.Username, body.Password, auth.ScopeGlasses, &deviceID)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
 	}
 	httperr.OK(c, gin.H{"access_token": token, "user": user, "device_id": deviceID})
+}
+
+// listBusinessCodes 查询业务编码配置列表。
+func (h *Handler) listBusinessCodes(c *gin.Context) {
+	result, err := h.businessCodes.List(c.Query("keyword"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// createBusinessCode 创建业务编码配置。
+func (h *Handler) createBusinessCode(c *gin.Context) {
+	var input businesscodes.Input
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.businessCodes.Create(input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// updateBusinessCode 更新业务编码配置。
+func (h *Handler) updateBusinessCode(c *gin.Context) {
+	var input businesscodes.Input
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.businessCodes.Update(idParam(c, "id"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// enableBusinessCode 启用业务编码配置。
+func (h *Handler) enableBusinessCode(c *gin.Context) {
+	if err := h.businessCodes.Enable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"status": businesscodes.StatusActive})
+}
+
+// disableBusinessCode 停用业务编码配置。
+func (h *Handler) disableBusinessCode(c *gin.Context) {
+	if err := h.businessCodes.Disable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"status": businesscodes.StatusDisabled})
+}
+
+// deleteBusinessCode 删除业务编码配置。
+func (h *Handler) deleteBusinessCode(c *gin.Context) {
+	if err := h.businessCodes.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// generateBusinessCode 生成下一业务编号；该操作会消耗真实 Redis 流水号。
+func (h *Handler) generateBusinessCode(c *gin.Context) {
+	var body struct {
+		Code string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	code, err := h.businessCodes.GenerateDaily(c.Request.Context(), body.Code)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"code": code})
 }
 
 // createTemplate 创建巡检模板。

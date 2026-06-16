@@ -428,7 +428,54 @@ Android 工程使用 Android Studio 或 Gradle 验证。
 - 不要新增错误场景时返回随意格式的 JSON。
 - 不要把 Android Activity 写成同时负责 UI、网络、重试、存储的“大文件”。
 
-## 九、常用命令
+## 九、VS Code 开发环境
+
+项目已预配置 `.vscode/launch.json` 和 `.vscode/tasks.json`，在 VS Code 中打开项目文件夹即可使用。
+
+### 1. 推荐扩展
+
+安装以下扩展可获得最佳开发体验：
+
+- **Go**（`golang.go`）：Go 语言支持、调试、代码补全
+- **Vue - Official**（`Vue.volar`）：Vue 3 语法高亮、类型检查
+- **ESLint**（`dbaeumer.vscode-eslint`）：前端代码规范检查
+
+### 2. 启动和调试
+
+按 `F5` 打开运行面板，可选择：
+
+| 配置名称 | 说明 |
+| --- | --- |
+| 启动前后端 (全部) | 同时启动后端和前端，支持断点调试，停止时一并关闭 |
+| 启动后端 (Go API) | 仅启动后端，可在 Go 代码中设置断点 |
+| 启动前端 (Vite) | 仅启动前端开发服务 |
+| 初始化数据库 | 执行数据库迁移和种子数据写入 |
+
+调试 Go 后端前，需要安装 `dlv` 调试器：
+
+```bash
+go install github.com/go-delve/delve/cmd/dlv@latest
+```
+
+### 3. 任务命令
+
+按 `Cmd+Shift+B`（macOS）或 `Ctrl+Shift+B`（Windows/Linux）可执行默认构建任务（并行启动前后端）。
+
+通过 `Cmd+Shift+P` → `Tasks: Run Task` 可以运行更多任务：启动后端、启动前端、初始化数据库、安装前端依赖、后端测试、前端构建等。
+
+### 4. 一键启动脚本
+
+如果不在 VS Code 中开发，也可以使用终端脚本：
+
+```bash
+./scripts/dev.sh            # 启动前后端
+./scripts/dev.sh backend    # 仅后端
+./scripts/dev.sh frontend   # 仅前端
+```
+
+脚本会自动检测前端依赖、启动服务并显示访问地址，按 `Ctrl+C` 统一停止。
+
+## 十、常用命令
 
 初始化数据库：
 

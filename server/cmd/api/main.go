@@ -1,13 +1,14 @@
-// Package main 启动智能眼镜巡检 API 服务。它负责加载运行配置、连接本地基础设施、
-// 执行数据库迁移和初始化数据，并把各业务服务装配到 Gin HTTP 路由中，供后台 Web
-// 和 Android 眼镜端共同调用。
+// Package main 启动智能眼镜巡检 API 服务。它负责加载运行配置、连接本地基础设施，
+// 并把各业务服务装配到 Gin HTTP 路由中，供后台 Web 和 Android 眼镜端共同调用。
 package main
 
 import (
 	"log"
+	_ "time/tzdata"
 
 	"aiglasses/server/internal/attachments"
 	"aiglasses/server/internal/auth"
+	"aiglasses/server/internal/businesscodes"
 	"aiglasses/server/internal/config"
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/devices"
@@ -16,7 +17,6 @@ import (
 	"aiglasses/server/internal/organizations"
 	"aiglasses/server/internal/plans"
 	"aiglasses/server/internal/platform/database"
-	"aiglasses/server/internal/platform/seed"
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
 	"aiglasses/server/internal/users"
@@ -31,13 +31,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := database.AutoMigrate(db); err != nil {
-		log.Fatal(err)
-	}
-	if err := seed.Run(db); err != nil {
-		log.Fatal(err)
-	}
 	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr, Password: cfg.RedisPassword})
+	businessCodeSvc, err := businesscodes.NewService(db, redisClient)
+	if err != nil {
+		log.Fatal(err)
+	}
 	authSvc := auth.NewService(db, cfg.JWTSecret, cfg.AccessTokenTTL)
 	attachmentSvc, err := attachments.NewService(db, cfg)
 	if err != nil {
@@ -47,6 +45,7 @@ func main() {
 	handler := httpapi.NewHandler(
 		authSvc,
 		attachmentSvc,
+		businessCodeSvc,
 		defects.NewService(db),
 		devices.NewService(db),
 		organizations.NewService(db),

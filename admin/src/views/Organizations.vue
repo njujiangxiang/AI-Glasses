@@ -11,7 +11,13 @@
       <el-table-column prop="code" label="单位编码" />
       <el-table-column prop="name" label="单位名称" />
       <el-table-column prop="parent_code" label="上级单位编码" />
-      <el-table-column prop="status" label="状态" width="120" />
+      <el-table-column label="状态" width="120">
+        <template #default="scope">
+          <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
+            {{ scope.row.status === 'active' ? '启用' : '停用' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="CreatedAt" label="创建时间" width="180" />
       <el-table-column label="操作" width="260">
         <template #default="scope">

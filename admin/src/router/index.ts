@@ -11,9 +11,10 @@ import Defects from '@/views/Defects.vue'
 import Devices from '@/views/Devices.vue'
 import Organizations from '@/views/Organizations.vue'
 import Users from '@/views/Users.vue'
+import BusinessCodes from '@/views/BusinessCodes.vue'
 import Login from '@/views/Login.vue'
 
-export default createRouter({
+const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/workbench' },
@@ -28,6 +29,20 @@ export default createRouter({
     { path: '/defects', component: Defects, meta: { title: '缺陷管理' } },
     { path: '/devices', component: Devices, meta: { title: '设备管理' } },
     { path: '/organizations', component: Organizations, meta: { title: '组织管理' } },
-    { path: '/users', component: Users, meta: { title: '用户管理' } }
+    { path: '/users', component: Users, meta: { title: '用户管理' } },
+    { path: '/business-codes', component: BusinessCodes, meta: { title: '业务编码配置' } }
   ]
 })
+
+// 路由守卫：未登录用户重定向到登录页，已登录用户访问登录页重定向到工作台。
+router.beforeEach((to) => {
+  const token = localStorage.getItem('admin_token')
+  if (!token && !to.meta.public) {
+    return { path: '/login' }
+  }
+  if (token && to.path === '/login') {
+    return { path: '/workbench' }
+  }
+})
+
+export default router

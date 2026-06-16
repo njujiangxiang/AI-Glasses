@@ -88,6 +88,7 @@ import {
   Document,
   Expand,
   Fold,
+  Key,
   Monitor,
   OfficeBuilding,
   Setting,
@@ -128,7 +129,8 @@ const menuItems: MenuItem[] = [
     icon: Setting,
     children: [
       { path: '/organizations', title: '组织管理', icon: OfficeBuilding },
-      { path: '/users', title: '用户管理', icon: User }
+      { path: '/users', title: '用户管理', icon: User },
+      { path: '/business-codes', title: '业务编码配置', icon: Key }
     ]
   }
 ]

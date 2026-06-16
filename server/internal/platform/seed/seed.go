@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"aiglasses/server/internal/platform/database"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -35,14 +36,19 @@ func Run(db *gorm.DB) error {
 			return err
 		}
 
+		defaultHash, err := bcrypt.GenerateFromPassword([]byte("admin"), bcrypt.DefaultCost)
+		if err != nil {
+			return err
+		}
+		hashStr := string(defaultHash)
 		users := []database.User{
-			{Username: "admin", PasswordHash: "dev-only", DisplayName: "系统管理员", Name: "系统管理员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
-			{Username: "manager", PasswordHash: "dev-only", DisplayName: "任务管理员", Name: "任务管理员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
-			{Username: "leader", PasswordHash: "dev-only", DisplayName: "巡检班组长", Name: "巡检班组长", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
-			{Username: "inspector", PasswordHash: "dev-only", DisplayName: "巡检员", Name: "巡检员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
+			{Username: "admin", PasswordHash: hashStr, DisplayName: "系统管理员", Name: "系统管理员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
+			{Username: "manager", PasswordHash: hashStr, DisplayName: "任务管理员", Name: "任务管理员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
+			{Username: "leader", PasswordHash: hashStr, DisplayName: "巡检班组长", Name: "巡检班组长", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
+			{Username: "inspector", PasswordHash: hashStr, DisplayName: "巡检员", Name: "巡检员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
 		}
 		for _, user := range users {
-			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "username"}}, DoUpdates: clause.AssignmentColumns([]string{"display_name", "name", "gender", "org_code", "status"})}).Create(&user).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "username"}}, DoUpdates: clause.AssignmentColumns([]string{"password_hash", "display_name", "name", "gender", "org_code", "status"})}).Create(&user).Error; err != nil {
 				return err
 			}
 		}

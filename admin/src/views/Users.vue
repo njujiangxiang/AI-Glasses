@@ -34,7 +34,13 @@
         <template #default="scope">{{ maskID(scope.row.id_card_no) }}</template>
       </el-table-column>
       <el-table-column prop="org_code" label="所属单位" />
-      <el-table-column prop="status" label="状态" width="100" />
+      <el-table-column label="状态" width="100">
+        <template #default="scope">
+          <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
+            {{ scope.row.status === 'active' ? '启用' : '停用' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="220">
         <template #default="scope">
           <el-button link type="primary" @click="openEdit(scope.row)">编辑</el-button>

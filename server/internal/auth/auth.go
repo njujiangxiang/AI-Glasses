@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -41,11 +42,14 @@ func NewService(db *gorm.DB, secret string, accessTTL time.Duration) *Service {
 	return &Service{db: db, secret: []byte(secret), accessTTL: accessTTL}
 }
 
-// Login 根据用户名和登录范围签发访问令牌，眼镜端登录必须携带设备 ID。
-func (s *Service) Login(username string, scope Scope, deviceID *uint64) (string, database.User, error) {
+// Login 根据用户名、密码和登录范围签发访问令牌，眼镜端登录必须携带设备 ID。
+func (s *Service) Login(username, password string, scope Scope, deviceID *uint64) (string, database.User, error) {
 	var user database.User
 	if err := s.db.Where("username = ? AND status = ?", username, "active").First(&user).Error; err != nil {
-		return "", user, httperr.New(httperr.AuthForbidden, "user is not allowed")
+		return "", user, httperr.New(httperr.AuthForbidden, "用户名或密码错误")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return "", user, httperr.New(httperr.AuthForbidden, "用户名或密码错误")
 	}
 	if scope == ScopeGlasses && deviceID == nil {
 		return "", user, httperr.New(httperr.DeviceRevoked, "device is required")

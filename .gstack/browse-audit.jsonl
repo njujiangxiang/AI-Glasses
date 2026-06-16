@@ -1,2 +1,4 @@
 {"ts":"2026-06-13T10:50:35.728Z","cmd":"goto","args":"file:///tmp/gstack-sketch-20260613-185017.html","origin":"file:///tmp/gstack-sketch-20260613-185017.html","durationMs":8,"status":"ok","hasCookies":false,"mode":"launched"}
 {"ts":"2026-06-13T10:50:36.307Z","cmd":"screenshot","args":"/tmp/gstack-sketch.png","origin":"file:///tmp/gstack-sketch-20260613-185017.html","durationMs":550,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-06-16T05:02:15.791Z","cmd":"goto","args":"file:///tmp/gstack-business-code-sketch.html","origin":"file:///tmp/gstack-business-code-sketch.html","durationMs":13,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-06-16T05:02:15.905Z","cmd":"screenshot","args":"/tmp/gstack-business-code-sketch.png","origin":"file:///tmp/gstack-business-code-sketch.html","durationMs":83,"status":"ok","hasCookies":false,"mode":"launched"}

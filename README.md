@@ -39,6 +39,54 @@ AI Glasses/
 DEVELOPER_GUIDE.md
 ```
 
+## 快速启动
+
+前提：MySQL、Redis、RabbitMQ、MinIO 等基础服务已通过 `docker compose up -d` 启动。
+
+### 一键启动前后端
+
+```bash
+./scripts/dev.sh
+```
+
+脚本会同时启动后端（Go API）和前端（Vite），启动完成后显示访问地址。按 `Ctrl+C` 停止所有服务。
+
+也可以单独启动：
+
+```bash
+./scripts/dev.sh backend    # 仅后端
+./scripts/dev.sh frontend   # 仅前端
+```
+
+### 在 VS Code 中启动
+
+项目已配置 `.vscode/launch.json` 和 `.vscode/tasks.json`，打开项目文件夹后即可使用：
+
+**方式一：调试启动（推荐）**
+
+1. 按 `F5` 或点击运行面板，选择 **"启动前后端 (全部)"**
+2. 后端和前端会同时启动，支持断点调试
+3. 也可以单独选择 **"启动后端 (Go API)"** 或 **"启动前端 (Vite)"**
+
+> 调试 Go 后端需要安装 [Go 扩展](https://marketplace.visualstudio.com/items?itemName=golang.go)（`golang.go`）和 `dlv` 调试器。
+
+**方式二：任务启动**
+
+1. 按 `Cmd+Shift+B`（macOS）或 `Ctrl+Shift+B`（Windows/Linux）执行默认构建任务
+2. 会自动并行启动前后端
+
+其他可用任务（`Cmd+Shift+P` → `Tasks: Run Task`）：
+
+| 任务名称 | 说明 |
+| --- | --- |
+| 启动后端 | 启动 Go API 服务 |
+| 启动前端 | 启动 Vite 开发服务 |
+| 启动前后端 (全部) | 并行启动前后端 |
+| 初始化数据库 | 执行数据库迁移和种子数据 |
+| 安装前端依赖 | 执行 npm install |
+| 后端测试 | 运行 go test |
+| 前端构建 | 运行 npm run build |
+
 ## 本地依赖
 
 当前本地开发默认使用：

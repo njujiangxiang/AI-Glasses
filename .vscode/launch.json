@@ -1,0 +1,56 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "启动后端 (Go API)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/server/cmd/api/main.go",
+      "cwd": "${workspaceFolder}/server",
+      "args": [],
+      "env": {},
+      "preLaunchTask": null
+    },
+    {
+      "name": "启动前端 (Vite)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "node_modules/.bin/vite",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5180"
+      ],
+      "cwd": "${workspaceFolder}/admin",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "初始化数据库",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/server/cmd/initdb/main.go",
+      "cwd": "${workspaceFolder}/server",
+      "args": []
+    }
+  ],
+  "compounds": [
+    {
+      "name": "启动前后端 (全部)",
+      "configurations": [
+        "启动后端 (Go API)",
+        "启动前端 (Vite)"
+      ],
+      "presentation": {
+        "hidden": false,
+        "group": "dev",
+        "order": 1
+      },
+      "stopAll": true
+    }
+  ]
+}

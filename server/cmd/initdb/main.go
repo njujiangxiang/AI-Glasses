@@ -4,6 +4,7 @@ package main
 
 import (
 	"log"
+	_ "time/tzdata"
 
 	"aiglasses/server/internal/config"
 	"aiglasses/server/internal/platform/database"

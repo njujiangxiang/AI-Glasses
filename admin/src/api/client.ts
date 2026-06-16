@@ -71,8 +71,13 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
   return unwrap<T>(res)
 }
 
-// unwrap 统一解析后端响应，失败时抛出后端返回的错误消息。
+// unwrap 统一解析后端响应，失败时抛出后端返回的错误消息。401 自动清除登录态并跳转登录页。
 async function unwrap<T>(res: Response): Promise<T> {
+  if (res.status === 401) {
+    clearToken()
+    window.location.href = '/login'
+    throw new Error('登录已过期，请重新登录')
+  }
   const json = await res.json()
   if (!res.ok) throw new Error(json?.error?.message || 'request failed')
   return json.data as T

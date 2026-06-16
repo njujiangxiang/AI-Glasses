@@ -8,6 +8,7 @@ import (
 
 	"aiglasses/server/internal/platform/database"
 	"aiglasses/server/internal/platform/httperr"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
@@ -34,6 +35,7 @@ type ListQuery struct {
 
 type CreateInput struct {
 	Username   string `json:"username"`
+	Password   string `json:"password"`
 	Name       string `json:"name"`
 	Gender     string `json:"gender"`
 	BirthYear  int    `json:"birth_year"`
@@ -121,11 +123,19 @@ func (s *Service) Get(id uint64) (UserDTO, error) {
 	return toDTO(user), nil
 }
 
-// Create 创建后台用户基础资料。
+// Create 创建后台用户基础资料，密码使用 bcrypt 哈希存储。
 func (s *Service) Create(input CreateInput) (UserDTO, error) {
+	password := strings.TrimSpace(input.Password)
+	if len(password) < 4 {
+		return UserDTO{}, httperr.New(httperr.ValidationFailed, "密码长度不能少于4位")
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return UserDTO{}, err
+	}
 	user := database.User{
 		Username:     strings.TrimSpace(input.Username),
-		PasswordHash: "dev-only",
+		PasswordHash: string(hash),
 		DisplayName:  strings.TrimSpace(input.Name),
 		Name:         strings.TrimSpace(input.Name),
 		Gender:       normalizeGender(input.Gender),
