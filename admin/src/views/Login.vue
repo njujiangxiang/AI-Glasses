@@ -2,10 +2,7 @@
   <div class="login-container">
     <!-- 左侧品牌区 -->
     <div class="login-brand">
-      <div class="brand-bg">
-        <div class="brand-pattern"></div>
-        <div class="brand-glow"></div>
-      </div>
+      <div class="brand-overlay"></div>
       <div class="brand-content">
         <div class="brand-icon">
           <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -19,35 +16,16 @@
         <h1 class="brand-title">智镜巡检</h1>
         <div class="brand-divider"></div>
         <p class="brand-subtitle">智能眼镜巡检管理系统</p>
-        <div class="brand-features">
-          <div class="feature-item">
-            <span class="feature-icon">✓</span>
-            <span>任务数字化管理</span>
-          </div>
-          <div class="feature-item">
-            <span class="feature-icon">✓</span>
-            <span>操作可视化指引</span>
-          </div>
-          <div class="feature-item">
-            <span class="feature-icon">✓</span>
-            <span>证据可追溯记录</span>
-          </div>
-        </div>
-      </div>
-      <div class="brand-footer">
-        <p>© 2025 智镜巡检 版权所有</p>
+        <p class="brand-desc">
+          基于智能眼镜的现场作业巡检解决方案，实现任务数字化、操作可视化、证据可追溯
+        </p>
       </div>
     </div>
 
-    <!-- 右侧登录区 - 融合设计 -->
-    <div class="login-form-section">
+    <!-- 右侧登录区 -->
+    <div class="login-form-wrapper">
       <div class="login-card">
         <div class="login-header">
-          <div class="login-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </div>
           <h2>欢迎登录</h2>
           <p>请输入您的账号密码</p>
         </div>
@@ -76,7 +54,7 @@
             />
           </el-form-item>
 
-          <div class="form-actions">
+          <div class="form-row">
             <el-checkbox v-model="rememberMe">记住我</el-checkbox>
           </div>
 
@@ -90,10 +68,10 @@
             登录系统
           </el-button>
         </el-form>
+      </div>
 
-        <div class="login-tip">
-          <p>演示账号：admin / admin123</p>
-        </div>
+      <div class="login-footer">
+        <p>© 2025 智镜巡检 版权所有</p>
       </div>
     </div>
   </div>
@@ -140,212 +118,103 @@ async function login() {
 
 <style scoped>
 .login-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   min-height: 100vh;
-  display: flex;
-  position: relative;
-  overflow: hidden;
 }
 
-/* ========== 左侧品牌区 - 柔和渐变 ========== */
+/* ========== 左侧品牌区 ========== */
 .login-brand {
-  flex: 1;
   position: relative;
+  background-image: url('https://images.unsplash.com/photo-1581093458791-91186078f78a?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80');
+  background-size: cover;
+  background-position: center;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px;
-  color: white;
 }
 
-.brand-bg {
+/* 渐变遮罩 - 国网绿色调 */
+.brand-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, #007a3d 0%, #00572b 50%, #004d26 100%);
-  z-index: 0;
-}
-
-/* 装饰图案 - 增加层次感 */
-.brand-pattern {
-  position: absolute;
-  top: -50%;
-  right: -50%;
-  width: 200%;
-  height: 200%;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
-    radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.05) 0%, transparent 40%);
-  animation: patternFloat 60s ease-in-out infinite;
-}
-
-@keyframes patternFloat {
-  0%, 100% { transform: translate(0, 0) rotate(0deg); }
-  50% { transform: translate(-5%, 5%) rotate(2deg); }
-}
-
-/* 发光效果 - 向右延伸，连接右侧 */
-.brand-glow {
-  position: absolute;
-  top: 0;
-  right: -200px;
-  width: 400px;
-  height: 100%;
-  background: radial-gradient(ellipse at center, rgba(0, 122, 61, 0.15) 0%, transparent 70%);
-  z-index: 1;
+  background: linear-gradient(135deg, rgba(0, 122, 61, 0.92) 0%, rgba(0, 87, 43, 0.88) 100%);
 }
 
 .brand-content {
   position: relative;
-  z-index: 2;
+  z-index: 1;
   text-align: center;
-  max-width: 400px;
+  color: white;
+  padding: 60px;
 }
 
 .brand-icon {
-  width: 100px;
-  height: 100px;
-  margin: 0 auto 32px;
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
   color: rgba(255, 255, 255, 0.95);
-  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.2));
 }
 
 .brand-title {
   font-size: 42px;
   font-weight: 600;
-  margin-bottom: 16px;
-  letter-spacing: 3px;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  margin-bottom: 12px;
+  letter-spacing: 2px;
 }
 
 .brand-divider {
-  width: 80px;
+  width: 60px;
   height: 3px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-  margin: 24px auto;
+  background: rgba(255, 255, 255, 0.5);
+  margin: 32px auto;
   border-radius: 2px;
 }
 
 .brand-subtitle {
   font-size: 18px;
-  font-weight: 300;
   opacity: 0.9;
+  font-weight: 300;
   letter-spacing: 1px;
-  margin-bottom: 40px;
 }
 
-.brand-features {
-  text-align: left;
-  display: inline-block;
+.brand-desc {
+  font-size: 14px;
+  opacity: 0.75;
+  max-width: 320px;
+  margin: 30px auto 0;
+  line-height: 1.8;
 }
 
-.feature-item {
+/* ========== 右侧登录区 ========== */
+.login-form-wrapper {
+  background: #f0f5f2;
   display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  font-size: 15px;
-  opacity: 0.85;
-  transition: all 0.3s ease;
-}
-
-.feature-item:hover {
-  opacity: 1;
-  transform: translateX(4px);
-}
-
-.feature-icon {
-  width: 24px;
-  height: 24px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
-
-.brand-footer {
-  position: absolute;
-  bottom: 30px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 13px;
-  opacity: 0.6;
-  z-index: 2;
-}
-
-/* ========== 右侧登录区 - 融合设计 ========== */
-.login-form-section {
-  flex: 0 0 520px;
-  position: relative;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 40px;
-  background: linear-gradient(135deg, #f8faf9 0%, #f0f5f2 100%);
-}
-
-/* 左侧连接条 - 视觉融合关键 */
-.login-form-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 6px;
-  height: 100%;
-  background: linear-gradient(180deg, #007a3d, #00572b);
-  box-shadow: 0 0 30px rgba(0, 122, 61, 0.3);
 }
 
 .login-card {
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
   background: white;
-  border-radius: 20px;
+  border-radius: 16px;
   padding: 48px 40px;
-  box-shadow:
-    0 4px 24px rgba(0, 122, 61, 0.08),
-    0 1px 3px rgba(0, 0, 0, 0.05),
-    0 0 0 1px rgba(0, 122, 61, 0.06);
-  position: relative;
-  overflow: hidden;
-}
-
-/* 卡片顶部绿色装饰条 - 与左侧呼应 */
-.login-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #007a3d, #00a854, #007a3d);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .login-header {
   text-align: center;
-  margin-bottom: 36px;
-}
-
-.login-icon {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 20px;
-  background: linear-gradient(135deg, #007a3d, #00a854);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  box-shadow: 0 4px 12px rgba(0, 122, 61, 0.3);
+  margin-bottom: 40px;
 }
 
 .login-header h2 {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 600;
   color: #1f2937;
   margin-bottom: 8px;
@@ -361,9 +230,9 @@ async function login() {
 }
 
 .login-form :deep(.el-input__wrapper) {
-  border-radius: 12px;
+  border-radius: 8px;
   padding: 8px 16px;
-  box-shadow: 0 0 0 1px #e5e7eb inset;
+  box-shadow: 0 0 0 1px #d1d5db inset;
   transition: all 0.2s ease;
 }
 
@@ -379,41 +248,38 @@ async function login() {
   font-size: 15px;
 }
 
-.login-form :deep(.el-input__prefix) {
-  color: #9ca3af;
-}
-
-.form-actions {
+.form-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   font-size: 14px;
 }
 
-.form-actions :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+.form-row :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
   background-color: #007a3d;
   border-color: #007a3d;
 }
 
-.form-actions :deep(.el-checkbox__input.is-focus .el-checkbox__inner) {
+.form-row :deep(.el-checkbox__input.is-focus .el-checkbox__inner) {
   border-color: #007a3d;
 }
 
 .login-btn {
   width: 100%;
-  height: 50px;
+  height: 48px;
+  background: #007a3d;
+  border: none;
+  border-radius: 8px;
   font-size: 16px;
   font-weight: 500;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #007a3d, #00572b);
-  border: none;
   box-shadow: 0 4px 12px rgba(0, 122, 61, 0.25);
   transition: all 0.2s ease;
 }
 
 .login-btn:hover {
-  transform: translateY(-2px);
+  background: #006b35;
+  transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(0, 122, 61, 0.35);
 }
 
@@ -421,65 +287,59 @@ async function login() {
   transform: translateY(0);
 }
 
-.login-tip {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #f3f4f6;
+.login-footer {
+  margin-top: 32px;
   text-align: center;
-  font-size: 13px;
   color: #9ca3af;
+  font-size: 13px;
 }
 
 /* ========== 响应式适配 ========== */
-@media (max-width: 968px) {
+@media (max-width: 768px) {
   .login-container {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .login-brand {
-    flex: none;
-    min-height: 280px;
-    padding: 40px 30px;
+    min-height: 240px;
+  }
+
+  .brand-content {
+    padding: 30px 20px;
   }
 
   .brand-icon {
-    width: 70px;
-    height: 70px;
-    margin-bottom: 20px;
+    width: 60px;
+    height: 60px;
+    margin-bottom: 16px;
   }
 
   .brand-title {
-    font-size: 30px;
+    font-size: 28px;
   }
 
   .brand-subtitle {
     font-size: 15px;
-    margin-bottom: 24px;
   }
 
-  .brand-features {
+  .brand-divider {
+    margin: 20px auto;
+  }
+
+  .brand-desc {
     display: none;
   }
 
-  .brand-footer {
-    display: none;
-  }
-
-  .login-form-section {
-    flex: 1;
+  .login-form-wrapper {
     padding: 30px 20px;
   }
 
-  .login-form-section::before {
-    width: 100%;
-    height: 4px;
-    top: 0;
-    bottom: auto;
-    background: linear-gradient(90deg, #007a3d, #00a854, #007a3d);
+  .login-card {
+    padding: 32px 24px;
   }
 
-  .login-card {
-    padding: 36px 28px;
+  .login-header h2 {
+    font-size: 22px;
   }
 }
 </style>
