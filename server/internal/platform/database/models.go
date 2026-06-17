@@ -249,7 +249,7 @@ type WorkflowStep struct {
 	AbnormalRequirePhoto  bool    `gorm:"not null;default:true;comment:异常时必须拍照" json:"abnormal_require_photo"`
 	AbnormalRequireVideo  bool    `gorm:"not null;default:false;comment:异常时必须录像" json:"abnormal_require_video"`
 	AbnormalRequireNote   bool    `gorm:"not null;default:true;comment:异常时必须填写备注" json:"abnormal_require_note"`
-	AbnormalRequireSign   bool    `gorm:"not null;default:false;comment:异常时必须签字确认" json:"abnormal_require_signature"`
+	AbnormalRequireSignature bool `gorm:"not null;default:false;comment:异常时必须签字确认" json:"abnormal_require_signature"`
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
