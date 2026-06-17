@@ -44,7 +44,8 @@
         </div>
         <el-dropdown trigger="click" @command="handleUserCommand">
           <span class="user-dropdown">
-            <span class="user-avatar">{{ currentUserInitial }}</span>
+            <el-avatar v-if="currentUserAvatarBlobUrl" :size="32" :src="currentUserAvatarBlobUrl" />
+            <el-avatar v-else :size="32">{{ currentUserInitial }}</el-avatar>
             <span class="user-meta">
               <span class="user-name">{{ currentUserName }}</span>
               <span class="user-role">{{ currentUserRole }}</span>
@@ -142,6 +143,30 @@ const currentUserName = computed(() => currentUser.value?.name || currentUser.va
 const currentUserRole = computed(() => currentUser.value?.company_name || '未设置公司')
 const currentUserInitial = computed(() => (currentUserName.value || 'A').slice(0, 1).toUpperCase())
 const activeMenu = computed(() => route.path.startsWith('/tasksheets') ? '/tasksheets' : route.path)
+// 右上角用户头像 - 与个人中心保持一致，支持显示上传的头像图片
+const currentUserAvatarBlobUrl = ref('')
+
+async function loadCurrentUserAvatar() {
+  if (!currentUser.value?.id || !currentUser.value.has_avatar) {
+    currentUserAvatarBlobUrl.value = ''
+    return
+  }
+  try {
+    const token = localStorage.getItem('admin_token')
+    const res = await fetch(`/api/admin/users/${currentUser.value.id}/avatar`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+    if (res.ok) {
+      const blob = await res.blob()
+      currentUserAvatarBlobUrl.value = URL.createObjectURL(blob)
+    }
+  } catch (e) {
+    console.warn('Failed to load header avatar:', e)
+  }
+}
+
+// 用户变化时重新加载头像
+watch(currentUser, () => loadCurrentUserAvatar(), { immediate: true })
 
 // currentTitle 根据路由元信息生成面包屑标题。
 const currentTitle = computed(() => String(route.meta.title || '工作台'))
