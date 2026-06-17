@@ -20,6 +20,7 @@ import (
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
 	"aiglasses/server/internal/users"
+	"aiglasses/server/internal/workflows"
 	"github.com/gin-gonic/gin"
 )
 
@@ -34,12 +35,13 @@ type Handler struct {
 	tasks         *tasks.Service
 	templates     *templates.Service
 	users         *users.Service
+	workflows     *workflows.Service
 	scheduler     *events.Scheduler
 }
 
 // NewHandler 创建 HTTP 处理器集合，并注入所有业务服务。
-func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, businessCodeSvc *businesscodes.Service, defectSvc *defects.Service, deviceSvc *devices.Service, orgSvc *organizations.Service, planSvc *plans.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, scheduler *events.Scheduler) *Handler {
-	return &Handler{auth: authSvc, attachments: attachmentSvc, businessCodes: businessCodeSvc, defects: defectSvc, devices: deviceSvc, organizations: orgSvc, plans: planSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, scheduler: scheduler}
+func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, businessCodeSvc *businesscodes.Service, defectSvc *defects.Service, deviceSvc *devices.Service, orgSvc *organizations.Service, planSvc *plans.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, workflowSvc *workflows.Service, scheduler *events.Scheduler) *Handler {
+	return &Handler{auth: authSvc, attachments: attachmentSvc, businessCodes: businessCodeSvc, defects: defectSvc, devices: deviceSvc, organizations: orgSvc, plans: planSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, workflows: workflowSvc, scheduler: scheduler}
 }
 
 // Register 注册公开接口、后台接口和眼镜端接口。
@@ -88,6 +90,18 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/users/:id/disable", h.disableUser)
 	admin.POST("/users/:id/avatar", h.setUserAvatar)
 	admin.GET("/users/:id/avatar", h.getUserAvatar)
+	admin.GET("/workflows", h.listWorkflows)
+	admin.POST("/workflows", h.createWorkflow)
+	admin.GET("/workflows/:id", h.getWorkflow)
+	admin.POST("/workflows/:id", h.updateWorkflow)
+	admin.POST("/workflows/:id/publish", h.publishWorkflow)
+	admin.POST("/workflows/:id/unpublish", h.unpublishWorkflow)
+	admin.POST("/workflows/:id/delete", h.deleteWorkflow)
+	admin.POST("/workflows/:id/steps", h.addWorkflowStep)
+	admin.POST("/workflows/:id/steps/:stepId", h.updateWorkflowStep)
+	admin.POST("/workflows/:id/steps/:stepId/delete", h.deleteWorkflowStep)
+	admin.POST("/workflows/:id/steps/:stepId/duplicate", h.duplicateWorkflowStep)
+	admin.POST("/workflows/:id/steps/reorder", h.reorderWorkflowSteps)
 
 	glasses := api.Group("/glasses", auth.Middleware(h.auth, auth.ScopeGlasses))
 	glasses.GET("/tasks", h.glassesTasks)
@@ -701,4 +715,146 @@ func intQuery(c *gin.Context, key string, fallback int) int {
 		return fallback
 	}
 	return value
+}
+
+// listWorkflows 查询工作流列表。
+func (h *Handler) listWorkflows(c *gin.Context) {
+	result, err := h.workflows.List(c.Query("keyword"), c.Query("status"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// createWorkflow 创建工作流。
+func (h *Handler) createWorkflow(c *gin.Context) {
+	var input workflows.WorkflowInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.workflows.Create(auth.UserID(c), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// getWorkflow 获取工作流详情（包含步骤）。
+func (h *Handler) getWorkflow(c *gin.Context) {
+	result, err := h.workflows.GetDetail(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// updateWorkflow 更新工作流基本信息。
+func (h *Handler) updateWorkflow(c *gin.Context) {
+	var input workflows.WorkflowInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.workflows.Update(idParam(c, "id"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// publishWorkflow 发布工作流。
+func (h *Handler) publishWorkflow(c *gin.Context) {
+	if err := h.workflows.Publish(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"status": workflows.StatusPublished})
+}
+
+// unpublishWorkflow 取消发布工作流。
+func (h *Handler) unpublishWorkflow(c *gin.Context) {
+	if err := h.workflows.Unpublish(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"status": workflows.StatusDraft})
+}
+
+// deleteWorkflow 删除工作流。
+func (h *Handler) deleteWorkflow(c *gin.Context) {
+	if err := h.workflows.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// addWorkflowStep 添加步骤。
+func (h *Handler) addWorkflowStep(c *gin.Context) {
+	var input workflows.StepInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.workflows.AddStep(idParam(c, "id"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// updateWorkflowStep 更新步骤。
+func (h *Handler) updateWorkflowStep(c *gin.Context) {
+	var input workflows.StepInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.workflows.UpdateStep(idParam(c, "stepId"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// deleteWorkflowStep 删除步骤。
+func (h *Handler) deleteWorkflowStep(c *gin.Context) {
+	if err := h.workflows.DeleteStep(idParam(c, "stepId")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// duplicateWorkflowStep 复制步骤。
+func (h *Handler) duplicateWorkflowStep(c *gin.Context) {
+	result, err := h.workflows.DuplicateStep(idParam(c, "stepId"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// reorderWorkflowSteps 重新排序步骤。
+func (h *Handler) reorderWorkflowSteps(c *gin.Context) {
+	var body struct {
+		StepIDs []uint64 `json:"step_ids"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	if err := h.workflows.ReorderSteps(idParam(c, "id"), body.StepIDs); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"reordered": true})
 }

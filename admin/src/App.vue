@@ -91,6 +91,7 @@ import {
   Key,
   Monitor,
   OfficeBuilding,
+  Operation,
   Setting,
   Tickets,
   User
@@ -111,6 +112,7 @@ type MenuItem = { path: string; title: string; icon: unknown; children?: MenuIte
 const menuItems: MenuItem[] = [
   { path: '/workbench', title: '工作台', icon: DataAnalysis },
   { path: '/templates', title: '巡检模板', icon: Document },
+  { path: '/workflows', title: '工作流管理', icon: Operation },
   { path: '/plans', title: '任务计划', icon: Calendar },
   { path: '/tasks', title: '任务管理', icon: Tickets },
   { path: '/tasksheets', title: '作业任务单', icon: Document },

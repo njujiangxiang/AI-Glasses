@@ -20,6 +20,7 @@ import (
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
 	"aiglasses/server/internal/users"
+	"aiglasses/server/internal/workflows"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 )
@@ -53,6 +54,7 @@ func main() {
 		tasks.NewService(db, redisClient),
 		templates.NewService(db),
 		users.NewService(db),
+		workflows.NewService(db),
 		scheduler,
 	)
 	r := gin.Default()

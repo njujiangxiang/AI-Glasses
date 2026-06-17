@@ -1,1 +1,5 @@
-[2026-06-16T05:02:15.784Z] GET file:///tmp/gstack-business-code-sketch.html → 200 (3ms, 4961B)
+[2026-06-16T15:12:57.680Z] GET file:///Users/xiaoyu/code/AI%20Glasses/workflow-prototype.html → 200 (4ms, 22133B)
+[2026-06-16T15:12:57.689Z] GET https://cdn.jsdelivr.net/npm/element-plus/dist/index.css → 200 (303ms, ?B)
+[2026-06-16T15:12:57.689Z] GET https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js → pending (?ms, ?B)
+[2026-06-16T15:12:57.690Z] GET https://cdn.jsdelivr.net/npm/element-plus → pending (?ms, ?B)
+[2026-06-16T15:12:57.690Z] GET https://cdn.jsdelivr.net/npm/@element-plus/icons-vue/dist/index.css → pending (?ms, ?B)

@@ -83,6 +83,7 @@ func setupHandlerTest(t *testing.T) *testEnv {
 		nil, // tasks
 		nil, // templates
 		nil, // users
+		nil, // workflows
 		nil, // scheduler
 	)
 

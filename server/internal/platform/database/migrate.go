@@ -9,6 +9,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&Team{}, &TeamMember{},
 		&Device{}, &DeviceSession{}, &DeviceAuditLog{},
 		&InspectionTemplate{}, &InspectionTemplateNode{},
+		&Workflow{}, &WorkflowStep{},
 		&TaskPlan{}, &InspectionTask{}, &InspectionTaskNode{}, &TaskNodeResult{},
 		&Attachment{}, &Defect{}, &AuditLog{}, &OutboxEvent{},
 	)

@@ -12,6 +12,8 @@ import Devices from '@/views/Devices.vue'
 import Organizations from '@/views/Organizations.vue'
 import Users from '@/views/Users.vue'
 import BusinessCodes from '@/views/BusinessCodes.vue'
+import Workflows from '@/views/Workflows.vue'
+import WorkflowEditor from '@/views/WorkflowEditor.vue'
 import Login from '@/views/Login.vue'
 
 const router = createRouter({
@@ -30,7 +32,9 @@ const router = createRouter({
     { path: '/devices', component: Devices, meta: { title: '设备管理' } },
     { path: '/organizations', component: Organizations, meta: { title: '组织管理' } },
     { path: '/users', component: Users, meta: { title: '用户管理' } },
-    { path: '/business-codes', component: BusinessCodes, meta: { title: '业务编码配置' } }
+    { path: '/business-codes', component: BusinessCodes, meta: { title: '业务编码配置' } },
+    { path: '/workflows', component: Workflows, meta: { title: '工作流管理' } },
+    { path: '/workflows/:id', component: WorkflowEditor, meta: { title: '编辑工作流' } }
   ]
 })
 

@@ -257,3 +257,40 @@ type OutboxEvent struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+// Workflow 工作流配置，定义巡检步骤和异常触发规则。
+// Status: draft-草稿, published-已发布, archived-已归档
+type Workflow struct {
+	ID          uint64 `gorm:"primaryKey;comment:工作流ID" json:"id"`
+	Name        string `gorm:"size:128;not null;comment:工作流名称" json:"name"`
+	Description string `gorm:"size:512;comment:工作流描述" json:"description"`
+	Status      string `gorm:"size:32;index;not null;default:'draft';comment:状态：draft草稿，published已发布，archived已归档" json:"status"`
+	CreatedBy   uint64 `gorm:"index;not null;comment:创建人ID" json:"created_by"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// WorkflowStep 工作流步骤，支持多种输入类型和异常触发配置。
+// Type: text-文本输入, number-数值输入, select-选择清单, photo-拍照, video-录像, audio-录音
+type WorkflowStep struct {
+	ID          uint64 `gorm:"primaryKey;comment:步骤ID" json:"id"`
+	WorkflowID  uint64 `gorm:"uniqueIndex:idx_workflow_sort;index;not null;comment:所属工作流ID" json:"workflow_id"`
+	SortOrder   int    `gorm:"uniqueIndex:idx_workflow_sort;not null;comment:排序序号" json:"sort_order"`
+	Name        string `gorm:"size:128;not null;comment:步骤名称" json:"name"`
+	Description string `gorm:"size:512;comment:步骤描述" json:"description"`
+	Type        string `gorm:"size:32;not null;comment:步骤类型：text,number,select,photo,video,audio" json:"type"`
+	Required    bool   `gorm:"not null;default:true;comment:是否必填" json:"required"`
+
+	// 选择类型配置 - 使用指针类型，空值会转为NULL存入MySQL JSON字段
+	OptionsJSON *string `gorm:"type:json;comment:选择项配置JSON，仅select类型使用" json:"options_json"`
+
+	// 异常触发配置
+	AbnormalEnabled         bool `gorm:"not null;default:false;comment:是否启用异常触发" json:"abnormal_enabled"`
+	AbnormalRequirePhoto    bool `gorm:"not null;default:true;comment:异常时必须拍照" json:"abnormal_require_photo"`
+	AbnormalRequireVideo    bool `gorm:"not null;default:false;comment:异常时必须录像" json:"abnormal_require_video"`
+	AbnormalRequireNote     bool `gorm:"not null;default:true;comment:异常时必须填写备注" json:"abnormal_require_note"`
+	AbnormalRequireSignature bool `gorm:"not null;default:false;comment:异常时必须签字确认" json:"abnormal_require_signature"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
