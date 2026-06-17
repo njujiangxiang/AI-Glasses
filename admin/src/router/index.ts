@@ -14,6 +14,7 @@ import Users from '@/views/Users.vue'
 import BusinessCodes from '@/views/BusinessCodes.vue'
 import Workflows from '@/views/Workflows.vue'
 import WorkflowEditor from '@/views/WorkflowEditor.vue'
+import Profile from '@/views/Profile.vue'
 import Login from '@/views/Login.vue'
 
 const router = createRouter({
@@ -34,7 +35,8 @@ const router = createRouter({
     { path: '/users', component: Users, meta: { title: '用户管理' } },
     { path: '/business-codes', component: BusinessCodes, meta: { title: '业务编码配置' } },
     { path: '/workflows', component: Workflows, meta: { title: '工作流管理' } },
-    { path: '/workflows/:id', component: WorkflowEditor, meta: { title: '编辑工作流' } }
+    { path: '/workflows/:id', component: WorkflowEditor, meta: { title: '编辑工作流' } },
+    { path: '/profile', component: Profile, meta: { title: '个人中心' } }
   ]
 })
 

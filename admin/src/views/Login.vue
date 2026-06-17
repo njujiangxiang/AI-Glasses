@@ -45,6 +45,8 @@ async function login() {
       password: form.password
     })
     setToken(data.access_token)
+    console.log('Login user data:', data.user)
+    console.log('avatar_size value:', data.user.avatar_size)
     setCurrentUser({ ...data.user, company_name: data.company_name || '' })
     ElMessage.success('登录成功')
     await router.push('/workbench')

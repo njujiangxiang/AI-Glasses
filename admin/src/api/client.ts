@@ -8,6 +8,7 @@ export type CurrentUser = {
   display_name: string
   name: string
   avatar_size: number
+  has_avatar?: boolean
   company_name: string
 }
 

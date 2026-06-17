@@ -44,7 +44,10 @@
         </div>
         <el-dropdown trigger="click" @command="handleUserCommand">
           <span class="user-dropdown">
-            <el-avatar :size="32" :src="currentUserAvatarUrl">{{ currentUserInitial }}</el-avatar>
+            <!-- 使用 Blob URL 加载头像（支持 Bearer Token 认证） -->
+            <img v-if="currentUserAvatarBlobUrl" :src="currentUserAvatarBlobUrl"
+                 style="width:32px;height:32px;border-radius:50%;object-fit:cover;" />
+            <el-avatar v-else :size="32">{{ currentUserInitial }}</el-avatar>
             <span class="user-meta">
               <span class="user-name">{{ currentUserName }}</span>
               <span class="user-role">{{ currentUserRole }}</span>
@@ -141,8 +144,34 @@ const currentUser = computed(() => getCurrentUser())
 const currentUserName = computed(() => currentUser.value?.name || currentUser.value?.display_name || currentUser.value?.username || 'admin')
 const currentUserRole = computed(() => currentUser.value?.company_name || '未设置公司')
 const currentUserInitial = computed(() => currentUserName.value.slice(0, 1))
-const currentUserAvatarUrl = computed(() => currentUser.value?.avatar_size ? `/api/admin/users/${currentUser.value.id}/avatar` : '')
+// 右上角用户头像 - 使用 blob URL 方式加载（支持 Bearer Token 认证）
+const currentUserAvatarBlobUrl = ref('')
+
+async function loadCurrentUserAvatar() {
+  if (!currentUser.value?.id) return
+  try {
+    const token = localStorage.getItem('admin_token')
+    const res = await fetch(`/api/admin/users/${currentUser.value.id}/avatar`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {}
+    })
+    if (res.ok) {
+      const blob = await res.blob()
+      currentUserAvatarBlobUrl.value = URL.createObjectURL(blob)
+      console.log('✅ Avatar loaded as blob:', currentUserAvatarBlobUrl.value.substring(0, 50), '...')
+    } else {
+      console.log('⚠️ Avatar request failed, status:', res.status)
+      currentUserAvatarBlobUrl.value = ''
+    }
+  } catch (e) {
+    console.log('❌ Avatar load error:', e)
+    currentUserAvatarBlobUrl.value = ''
+  }
+}
+
+// 用户变化时重新加载头像
+watch(currentUser, () => loadCurrentUserAvatar(), { immediate: true })
 const activeMenu = computed(() => route.path.startsWith('/tasksheets') ? '/tasksheets' : route.path)
+const avatarLoadError = ref(false)
 
 // currentTitle 根据路由元信息生成面包屑标题。
 const currentTitle = computed(() => String(route.meta.title || '工作台'))
@@ -200,6 +229,15 @@ async function handleUserCommand(command: string) {
     ElMessage.success('已退出登录')
     return
   }
-  ElMessage.info('功能建设中')
+  if (command === 'profile') {
+    // 打开个人中心Tab
+    const tabPath = '/profile'
+    if (!tabs.value.some(tab => tab.path === tabPath)) {
+      tabs.value.push({ path: tabPath, title: '个人中心' })
+    }
+    activeTab.value = tabPath
+    await router.push(tabPath)
+    return
+  }
 }
 </script>
