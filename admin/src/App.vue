@@ -44,7 +44,9 @@
         </div>
         <el-dropdown trigger="click" @command="handleUserCommand">
           <span class="user-dropdown">
-            <el-avatar :size="32" :icon="User" />
+            <el-avatar :size="32" style="background: var(--el-color-primary); color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+              {{ currentUserInitial }}
+            </el-avatar>
             <span class="user-meta">
               <span class="user-name">{{ currentUserName }}</span>
               <span class="user-role">{{ currentUserRole }}</span>
