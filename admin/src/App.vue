@@ -140,7 +140,7 @@ const leafMenuItems = computed(() => menuItems.flatMap((item) => item.children |
 const currentUser = computed(() => getCurrentUser())
 const currentUserName = computed(() => currentUser.value?.name || currentUser.value?.display_name || currentUser.value?.username || 'admin')
 const currentUserRole = computed(() => currentUser.value?.company_name || '未设置公司')
-const currentUserInitial = computed(() => currentUserName.value.slice(0, 1))
+const currentUserInitial = computed(() => (currentUserName.value || 'A').slice(0, 1).toUpperCase())
 const activeMenu = computed(() => route.path.startsWith('/tasksheets') ? '/tasksheets' : route.path)
 
 // currentTitle 根据路由元信息生成面包屑标题。
