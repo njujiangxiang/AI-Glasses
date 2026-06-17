@@ -5,12 +5,20 @@
       <div class="brand-overlay"></div>
       <div class="brand-content">
         <div class="brand-icon">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="2" />
-            <circle cx="32" cy="32" r="18" stroke="currentColor" stroke-width="2" />
-            <circle cx="24" cy="28" r="6" fill="currentColor" />
-            <circle cx="40" cy="28" r="6" fill="currentColor" />
-            <path d="M20 44 Q32 52 44 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none" />
+          <svg viewBox="0 0 120 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- 左镜片 -->
+            <ellipse cx="35" cy="40" rx="28" ry="24" stroke="currentColor" stroke-width="3" fill="rgba(255,255,255,0.1)"/>
+            <!-- 右镜片 -->
+            <ellipse cx="85" cy="40" rx="28" ry="24" stroke="currentColor" stroke-width="3" fill="rgba(255,255,255,0.1)"/>
+            <!-- 鼻梁架 -->
+            <path d="M42 40 Q50 32 60 32 Q70 32 78 40" stroke="currentColor" stroke-width="3" fill="none"/>
+            <!-- 左镜腿 -->
+            <path d="M7 40 Q0 30 5 20 L8 18" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <!-- 右镜腿 -->
+            <path d="M113 40 Q120 30 115 20 L112 18" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
+            <!-- 镜片高光 -->
+            <ellipse cx="25" cy="32" rx="8" ry="5" fill="rgba(255,255,255,0.2)" transform="rotate(-20 25 32)"/>
+            <ellipse cx="75" cy="32" rx="8" ry="5" fill="rgba(255,255,255,0.2)" transform="rotate(-20 75 32)"/>
           </svg>
         </div>
         <h1 class="brand-title">智镜巡检</h1>
@@ -153,7 +161,7 @@ async function login() {
 }
 
 .brand-icon {
-  width: 80px;
+  width: 120px;
   height: 80px;
   margin: 0 auto 24px;
   color: rgba(255, 255, 255, 0.95);
