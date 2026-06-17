@@ -44,9 +44,12 @@
               v-model="form.username"
               placeholder="请输入用户名"
               size="large"
-              prefix-icon="User"
               class="login-input"
-            />
+            >
+              <template #prefix>
+                <el-icon><User /></el-icon>
+              </template>
+            </el-input>
           </el-form-item>
 
           <el-form-item prop="password">
@@ -55,11 +58,14 @@
               type="password"
               placeholder="请输入密码"
               size="large"
-              prefix-icon="Lock"
               show-password
               class="login-input"
               @keyup.enter="login"
-            />
+            >
+              <template #prefix>
+                <el-icon><Lock /></el-icon>
+              </template>
+            </el-input>
           </el-form-item>
 
           <div class="form-row">
@@ -89,6 +95,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { User, Lock } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
 import { apiPost, setCurrentUser, setToken } from '@/api/client'
 
