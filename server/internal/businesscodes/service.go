@@ -32,7 +32,7 @@ var goDateFormats = map[string]string{
 
 var (
 	codePattern = regexp.MustCompile(`^[A-Z0-9_-]{1,64}$`)
-	incrScript = `local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+	incrScript  = `local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 if current >= tonumber(ARGV[2]) then
   return current + 1
 end
@@ -197,6 +197,9 @@ func (s *Service) GenerateDaily(ctx context.Context, code string) (string, error
 	keyDate := now.Format("20060102")
 	key := fmt.Sprintf("BNO:%s:%s", cfg.Code, keyDate)
 	maxSeq := int64(math.Pow10(cfg.SeqPadding)) - 1
+	if s.redis == nil {
+		return "", httperr.New(httperr.InternalError, "业务编码流水号服务未配置，生成编号暂不可用")
+	}
 	result, err := s.redis.Eval(ctx, incrScript, []string{key}, redisTTLSeconds, maxSeq).Int64()
 	if err != nil {
 		return "", httperr.New(httperr.InternalError, "业务编码流水号服务不可用，请检查 Redis")

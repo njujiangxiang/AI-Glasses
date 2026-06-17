@@ -49,8 +49,11 @@ type PresignResult struct {
 	ObjectKey  string              `json:"object_key"`
 }
 
-// NewService 创建附件服务，并初始化 MinIO 客户端与目标 bucket 配置。
+// NewService 创建附件服务；未配置对象存储时保留服务但禁用预签名上传。
 func NewService(db *gorm.DB, cfg config.Config) (*Service, error) {
+	if cfg.S3Endpoint == "" {
+		return &Service{db: db, bucket: cfg.S3Bucket, cfg: cfg}, nil
+	}
 	client, err := minio.New(cfg.S3Endpoint, &minio.Options{Creds: credentials.NewStaticV4(cfg.S3AccessKey, cfg.S3SecretKey, ""), Secure: cfg.S3UseSSL})
 	if err != nil {
 		return nil, err
@@ -60,6 +63,9 @@ func NewService(db *gorm.DB, cfg config.Config) (*Service, error) {
 
 // Presign 创建待上传附件记录，并返回客户端直传对象存储所需的预签名地址。
 func (s *Service) Presign(ctx context.Context, userID uint64, input PresignInput) (PresignResult, error) {
+	if s.client == nil {
+		return PresignResult{}, httperr.New(httperr.InternalError, "对象存储未配置，附件上传暂不可用")
+	}
 	if !allowedContentType(input.ContentType) {
 		return PresignResult{}, httperr.New(httperr.AttachmentNotUploaded, "unsupported attachment content type")
 	}
@@ -88,6 +94,9 @@ func (s *Service) Presign(ctx context.Context, userID uint64, input PresignInput
 
 // MarkUploaded 校验对象存储中的文件并回写上传状态、大小和哈希。
 func (s *Service) MarkUploaded(ctx context.Context, attachmentID uint64) error {
+	if s.client == nil {
+		return httperr.New(httperr.InternalError, "对象存储未配置，附件上传暂不可用")
+	}
 	var attachment database.Attachment
 	if err := s.db.First(&attachment, attachmentID).Error; err != nil {
 		return err
@@ -107,6 +116,9 @@ func (s *Service) MarkUploaded(ctx context.Context, attachmentID uint64) error {
 
 // CleanupOrphans 清理超过指定时间仍未绑定业务结果的孤立附件记录。
 func (s *Service) CleanupOrphans(ctx context.Context, olderThan time.Duration) error {
+	if s.client == nil {
+		return nil
+	}
 	cutoff := time.Now().UTC().Add(-olderThan)
 	var attachments []database.Attachment
 	if err := s.db.Where("bind_status = ? AND created_at < ?", BindUploaded, cutoff).Find(&attachments).Error; err != nil {

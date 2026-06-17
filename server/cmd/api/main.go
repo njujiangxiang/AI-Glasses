@@ -31,7 +31,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr, Password: cfg.RedisPassword})
+	var redisClient *redis.Client
+	if cfg.RedisAddr != "" {
+		redisClient = redis.NewClient(&redis.Options{Addr: cfg.RedisAddr, Password: cfg.RedisPassword})
+	}
 	businessCodeSvc, err := businesscodes.NewService(db, redisClient)
 	if err != nil {
 		log.Fatal(err)
