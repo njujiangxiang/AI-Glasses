@@ -24,10 +24,10 @@
           <el-col :span="6"><el-form-item label="任务编号"><el-input v-model="master.code" disabled placeholder="保存后自动生成" /></el-form-item></el-col>
           <el-col :span="12"><el-form-item label="任务名称" prop="name"><el-input v-model="master.name" placeholder="请输入任务名称" /></el-form-item></el-col>
           <el-col :span="6"><el-form-item label="优先级" prop="priority"><el-select v-model="master.priority"><el-option label="普通" value="normal" /><el-option label="紧急" value="urgent" /></el-select></el-form-item></el-col>
-          <el-col :span="6"><el-form-item label="所属单位" prop="org_code"><el-select v-model="master.org_code"><el-option label="默认单位" value="ROOT" /></el-select></el-form-item></el-col>
-          <el-col :span="6"><el-form-item label="计划日期" prop="plan_date"><el-date-picker v-model="master.plan_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item></el-col>
-          <el-col :span="6"><el-form-item label="负责人" prop="owner_name"><el-select v-model="master.owner_name"><el-option label="巡检班组长" value="巡检班组长" /><el-option label="巡检员" value="巡检员" /></el-select></el-form-item></el-col>
-          <el-col :span="6"><el-form-item label="预计完成时长" prop="estimated_hours"><el-input-number v-model="master.estimated_hours" :min="0" :precision="1" style="width: 100%" /></el-form-item></el-col>
+          <el-col :span="6"><el-form-item label="所属单位" prop="orgCode"><el-select v-model="master.orgCode"><el-option label="默认单位" value="ROOT" /></el-select></el-form-item></el-col>
+          <el-col :span="6"><el-form-item label="计划日期" prop="planDate"><el-date-picker v-model="master.planDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item></el-col>
+          <el-col :span="6"><el-form-item label="负责人" prop="ownerName"><el-select v-model="master.ownerName"><el-option label="巡检班组长" value="巡检班组长" /><el-option label="巡检员" value="巡检员" /></el-select></el-form-item></el-col>
+          <el-col :span="6"><el-form-item label="预计完成时长" prop="estimatedHours"><el-input-number v-model="master.estimatedHours" :min="0" :precision="1" style="width: 100%" /></el-form-item></el-col>
           <el-col :span="24"><el-form-item label="备注"><el-input v-model="master.remark" type="textarea" :rows="3" placeholder="请输入备注" /></el-form-item></el-col>
         </el-row>
       </el-form>
@@ -48,28 +48,28 @@
       <el-empty v-if="details.length === 0" description="还没有作业明细，至少添加一条明细后才能提交任务单。">
         <el-button v-if="!isView" type="primary" @click="addDetail">新增第一条明细</el-button>
       </el-empty>
-      <el-table v-else :data="details" stripe row-key="local_id" :row-class-name="rowClassName">
+      <el-table v-else :data="details" stripe row-key="localId" :row-class-name="rowClassName">
         <el-table-column type="index" label="序号" width="70" />
         <el-table-column label="作业点位" min-width="160">
           <template #default="scope">
-            <el-input v-if="!isView" v-model="scope.row.point_name" placeholder="请输入点位" />
-            <span v-else>{{ scope.row.point_name }}</span>
-            <div v-if="!scope.row.point_name" class="row-error">缺少作业点位</div>
+            <el-input v-if="!isView" v-model="scope.row.pointName" placeholder="请输入点位" />
+            <span v-else>{{ scope.row.pointName }}</span>
+            <div v-if="!scope.row.pointName" class="row-error">缺少作业点位</div>
           </template>
         </el-table-column>
         <el-table-column label="设备名称" min-width="160">
-          <template #default="scope"><el-input v-if="!isView" v-model="scope.row.device_name" /><span v-else>{{ scope.row.device_name }}</span></template>
+          <template #default="scope"><el-input v-if="!isView" v-model="scope.row.deviceName" /><span v-else>{{ scope.row.deviceName }}</span></template>
         </el-table-column>
         <el-table-column label="作业内容" min-width="220">
-          <template #default="scope"><el-input v-if="!isView" v-model="scope.row.work_content" /><span v-else>{{ scope.row.work_content }}</span></template>
+          <template #default="scope"><el-input v-if="!isView" v-model="scope.row.workContent" /><span v-else>{{ scope.row.workContent }}</span></template>
         </el-table-column>
         <el-table-column label="标准工时" width="130">
-          <template #default="scope"><el-input-number v-if="!isView" v-model="scope.row.standard_hours" :min="0" :precision="1" style="width: 100%" /><span v-else>{{ scope.row.standard_hours }}</span></template>
+          <template #default="scope"><el-input-number v-if="!isView" v-model="scope.row.standardHours" :min="0" :precision="1" style="width: 100%" /><span v-else>{{ scope.row.standardHours }}</span></template>
         </el-table-column>
         <el-table-column label="风险等级" width="130">
           <template #default="scope">
-            <el-select v-if="!isView" v-model="scope.row.risk_level"><el-option label="低风险" value="low" /><el-option label="中风险" value="medium" /><el-option label="高风险" value="high" /></el-select>
-            <el-tag v-else :type="scope.row.risk_level === 'high' ? 'danger' : scope.row.risk_level === 'medium' ? 'warning' : 'success'">{{ riskLabel(scope.row.risk_level) }}</el-tag>
+            <el-select v-if="!isView" v-model="scope.row.riskLevel"><el-option label="低风险" value="low" /><el-option label="中风险" value="medium" /><el-option label="高风险" value="high" /></el-select>
+            <el-tag v-else :type="scope.row.riskLevel === 'high' ? 'danger' : scope.row.riskLevel === 'medium' ? 'warning' : 'success'">{{ riskLabel(scope.row.riskLevel) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column v-if="!isView" label="操作" width="150" fixed="right">
@@ -96,67 +96,215 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { taskStore, type TaskSheet, type TaskDetail } from '@/stores/taskStore'
 
-type Detail = { local_id: number; point_name: string; device_name: string; work_content: string; standard_hours: number; risk_level: 'low' | 'medium' | 'high' }
 const route = useRoute()
 const router = useRouter()
 const formRef = ref<FormInstance>()
+
 const isView = computed(() => route.params.mode === 'view')
 const isCreate = computed(() => route.params.mode === 'create')
+const isEdit = computed(() => route.params.mode === 'edit')
 const copyFrom = computed(() => String(route.query.copy_from || ''))
-const master = reactive({ code: isCreate.value ? '' : 'TASK-20260614-001', name: copyFrom.value ? 'A区变电站 AI眼镜巡检作业（复制）' : 'A区变电站 AI眼镜巡检作业', org_code: 'ROOT', plan_date: '2026-06-15', owner_name: '巡检班组长', priority: 'normal', estimated_hours: 2, remark: '明细中高风险点位提交前需要班组长复核。' })
-const details = ref<Detail[]>([
-  { local_id: 1, point_name: 'A区一号柜', device_name: '开关柜 KYN28', work_content: '红外测温与外观检查', standard_hours: 0.5, risk_level: 'medium' },
-  { local_id: 2, point_name: '', device_name: '主变压器', work_content: '油温与声音巡检', standard_hours: 1, risk_level: 'high' },
-  { local_id: 3, point_name: '电缆夹层', device_name: '电缆桥架', work_content: '积水与异物检查', standard_hours: 0.5, risk_level: 'medium' }
-])
+
+// Current task being edited - use reactive and update in place with Object.assign
+const currentTask = reactive<TaskSheet>(taskStore.create())
+
+// Master form fields (reactive view of currentTask)
+const master = reactive({
+  code: '',
+  name: '',
+  orgCode: 'ROOT',
+  orgName: '默认单位',
+  planDate: '',
+  ownerName: '',
+  priority: 'normal' as const,
+  estimatedHours: 2,
+  remark: ''
+})
+
+// Details array
+const details = ref<TaskDetail[]>([])
+
+// Form validation rules
 const rules: FormRules = {
   name: [{ required: true, message: '请输入任务名称', trigger: 'blur' }],
-  org_code: [{ required: true, message: '请选择所属单位', trigger: 'change' }],
-  plan_date: [{ required: true, message: '请选择计划日期', trigger: 'change' }],
-  owner_name: [{ required: true, message: '请选择负责人', trigger: 'change' }],
-  estimated_hours: [{ required: true, message: '请输入预计完成时长', trigger: 'blur' }]
+  orgCode: [{ required: true, message: '请选择所属单位', trigger: 'change' }],
+  planDate: [{ required: true, message: '请选择计划日期', trigger: 'change' }],
+  ownerName: [{ required: true, message: '请选择负责人', trigger: 'change' }],
+  estimatedHours: [{ required: true, message: '请输入预计完成时长', trigger: 'blur' }]
 }
-const pageTitle = computed(() => isView.value ? `查看：${master.code}` : isCreate.value ? '新增任务单' : `编辑：${master.code}`)
+
+// Computed properties
+const pageTitle = computed(() => isView.value ? `查看：${master.code || '任务单'}` : isCreate.value ? '新增任务单' : `编辑：${master.code || '任务单'}`)
 const subtitle = computed(() => isView.value ? '只读查看任务单主表和明细' : '先维护主表信息，再录入作业明细')
-const invalidRows = computed(() => details.value.filter((row) => !row.point_name || !row.device_name || !row.work_content))
+const invalidRows = computed(() => details.value.filter((row) => !row.pointName || !row.deviceName || !row.workContent))
 const summaryText = computed(() => isView.value ? '查看模式不可编辑，可复制为新任务单。' : invalidRows.value.length ? `明细表有 ${invalidRows.value.length} 行待完善，保存草稿不受影响，提交前需修正。` : '主表和明细已完整，可提交任务单。')
 
-// addDetail 新增一行作业明细。
-function addDetail() { details.value.push({ local_id: Date.now(), point_name: '', device_name: '', work_content: '', standard_hours: 0, risk_level: 'low' }) }
-// copyLastDetail 复制上一行明细。
-function copyLastDetail() { if (details.value.length) copyDetail(details.value.length - 1); else addDetail() }
-// copyDetail 复制指定明细行。
-function copyDetail(index: number) { details.value.splice(index + 1, 0, { ...details.value[index], local_id: Date.now() }) }
-// removeDetail 删除指定明细行。
-function removeDetail(index: number) { details.value.splice(index, 1) }
-// saveDraft 保存草稿，新增页保存后切换为编辑页。
-async function saveDraft() {
-  ElMessage.success('草稿已保存')
-  if (isCreate.value) await router.replace('/tasksheets/1/edit')
+// Load data on mount
+onMounted(() => {
+  loadTaskData()
+})
+
+// Load task data based on route params
+function loadTaskData() {
+  const id = Number(route.params.id)
+  let newTask: TaskSheet
+
+  if (isCreate.value) {
+    if (copyFrom.value) {
+      // Copy from existing
+      try {
+        const sourceId = Number(copyFrom.value)
+        newTask = taskStore.copy(sourceId)
+      } catch (e) {
+        ElMessage.error('复制失败，原任务单不存在')
+        newTask = taskStore.create()
+      }
+    } else {
+      // Create new
+      newTask = taskStore.create()
+    }
+  } else if (id) {
+    // View or Edit existing
+    const existing = taskStore.getById(id)
+    if (existing) {
+      newTask = existing
+    } else {
+      ElMessage.error('任务单不存在')
+      router.push('/tasksheets')
+      return
+    }
+  } else {
+    newTask = taskStore.create()
+  }
+
+  // Update currentTask in place
+  Object.assign(currentTask, newTask)
+  // Sync master and details from currentTask
+  syncFromTask()
 }
-// submitSheet 提交任务单并返回列表。
+
+// Sync currentTask data to form
+function syncFromTask() {
+  master.code = currentTask.code || ''
+  master.name = currentTask.name || ''
+  master.orgCode = currentTask.orgCode
+  master.orgName = currentTask.orgName
+  master.planDate = currentTask.planDate
+  master.ownerName = currentTask.ownerName
+  master.priority = currentTask.priority
+  master.estimatedHours = currentTask.estimatedHours
+  master.remark = currentTask.remark || ''
+  details.value = [...currentTask.details]
+}
+
+// Sync form changes back to currentTask
+function syncToTask() {
+  currentTask.code = master.code
+  currentTask.name = master.name
+  currentTask.orgCode = master.orgCode
+  currentTask.orgName = master.orgName
+  currentTask.planDate = master.planDate
+  currentTask.ownerName = master.ownerName
+  currentTask.priority = master.priority
+  currentTask.estimatedHours = master.estimatedHours
+  currentTask.remark = master.remark
+  currentTask.details = details.value
+  currentTask.detailCount = details.value.length
+}
+
+// Add new detail row
+function addDetail() {
+  details.value.push({ localId: Date.now(), pointName: '', deviceName: '', workContent: '', standardHours: 0, riskLevel: 'low' })
+}
+
+// Copy last detail row
+function copyLastDetail() {
+  if (details.value.length) {
+    copyDetail(details.value.length - 1)
+  } else {
+    addDetail()
+  }
+}
+
+// Copy specific detail row
+function copyDetail(index: number) {
+  details.value.splice(index + 1, 0, { ...details.value[index], localId: Date.now() })
+}
+
+// Remove detail row
+function removeDetail(index: number) {
+  details.value.splice(index, 1)
+}
+
+// Save draft
+async function saveDraft() {
+  await formRef.value?.validate()
+  syncToTask()
+  taskStore.save(currentTask)
+  ElMessage.success('草稿已保存')
+  // If was create, switch to edit mode
+  if (isCreate.value) {
+    await router.replace(`/tasksheets/${currentTask.id}/edit`)
+  }
+}
+
+// Submit task sheet
 async function submitSheet() {
   await formRef.value?.validate()
   if (!details.value.length || invalidRows.value.length) {
     ElMessage.error('请先完善作业明细')
     return
   }
+  syncToTask()
+  taskStore.save(currentTask)
+  taskStore.submit(currentTask.id)
   ElMessage.success('任务单已提交')
   await router.push('/tasksheets?status=submitted')
 }
-// backToList 返回列表，存在未保存变更时给出确认。
+
+// Back to list
 async function backToList() {
-  if (!isView.value) await ElMessageBox.confirm('当前内容可能未保存，确定返回列表吗？', '提示', { type: 'warning' })
+  if (!isView.value) {
+    // Check for unsaved changes
+    const original = taskStore.getById(currentTask.id)
+    let hasChanges = false
+    if (original) {
+      // Simple comparison
+      hasChanges = JSON.stringify(original) !== JSON.stringify({ ...currentTask, details: details.value })
+    } else if (master.name || details.value.length) {
+      hasChanges = true
+    }
+    if (hasChanges) {
+      try {
+        await ElMessageBox.confirm('当前内容可能未保存，确定返回列表吗？', '提示', { type: 'warning' })
+      } catch {
+        return
+      }
+    }
+  }
   await router.push('/tasksheets')
 }
-function copyCurrent() { router.push(`/tasksheets/create?copy_from=${route.params.id || 1}`) }
-function rowClassName({ row }: { row: Detail }) { return !row.point_name || !row.device_name || !row.work_content ? 'warning-row' : '' }
-function riskLabel(value: Detail['risk_level']) { return value === 'high' ? '高风险' : value === 'medium' ? '中风险' : '低风险' }
+
+// Copy current task as new
+function copyCurrent() {
+  router.push(`/tasksheets/create?copy_from=${route.params.id || currentTask.id}`)
+}
+
+// Table row class
+function rowClassName({ row }: { row: TaskDetail }) {
+  return !row.pointName || !row.deviceName || !row.workContent ? 'warning-row' : ''
+}
+
+// Risk level label
+function riskLabel(value: TaskDetail['riskLevel']) {
+  return value === 'high' ? '高风险' : value === 'medium' ? '中风险' : '低风险'
+}
 </script>
 
 <style scoped>

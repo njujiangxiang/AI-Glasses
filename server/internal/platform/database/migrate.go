@@ -1,3 +1,4 @@
+
 package database
 
 import "gorm.io/gorm"
@@ -8,7 +9,8 @@ func AutoMigrate(db *gorm.DB) error {
 		&User{}, &Organization{}, &BusinessCode{}, &Role{}, &Permission{}, &UserRole{}, &RolePermission{},
 		&Team{}, &TeamMember{},
 		&Device{}, &DeviceSession{}, &DeviceAuditLog{},
-		&InspectionTemplate{}, &InspectionTemplateNode{},
+		&TaskTypeDict{}, &AlgorithmConfig{}, &RealtimeQueryConfig{},
+		&InspectionTemplate{}, &InspectionTemplateNode{}, &TemplateNodeConfig{},
 		&Workflow{}, &WorkflowStep{},
 		&TaskPlan{}, &InspectionTask{}, &InspectionTaskNode{}, &TaskNodeResult{},
 		&Attachment{}, &Defect{}, &AuditLog{}, &OutboxEvent{},
