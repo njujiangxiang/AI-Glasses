@@ -138,7 +138,7 @@ async function login() {
 }
 </script>
 
-<style lang="scss" scoped>
+<style scoped>
 .login-container {
   min-height: 100vh;
   display: flex;
@@ -356,33 +356,31 @@ async function login() {
   font-size: 14px;
 }
 
-.login-form {
-  :deep(.el-form-item) {
-    margin-bottom: 24px;
-  }
+.login-form :deep(.el-form-item) {
+  margin-bottom: 24px;
+}
 
-  :deep(.el-input__wrapper) {
-    border-radius: 12px;
-    padding: 8px 16px;
-    box-shadow: 0 0 0 1px #e5e7eb inset;
-    transition: all 0.2s ease;
-  }
+.login-form :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  padding: 8px 16px;
+  box-shadow: 0 0 0 1px #e5e7eb inset;
+  transition: all 0.2s ease;
+}
 
-  :deep(.el-input__wrapper:hover) {
-    box-shadow: 0 0 0 1px #9ca3af inset;
-  }
+.login-form :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
 
-  :deep(.el-input__wrapper.is-focus) {
-    box-shadow: 0 0 0 1px #007a3d inset, 0 0 0 4px rgba(0, 122, 61, 0.1);
-  }
+.login-form :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1px #007a3d inset, 0 0 0 4px rgba(0, 122, 61, 0.1);
+}
 
-  :deep(.el-input__inner) {
-    font-size: 15px;
-  }
+.login-form :deep(.el-input__inner) {
+  font-size: 15px;
+}
 
-  :deep(.el-input__prefix) {
-    color: #9ca3af;
-  }
+.login-form :deep(.el-input__prefix) {
+  color: #9ca3af;
 }
 
 .form-actions {
@@ -391,15 +389,15 @@ async function login() {
   align-items: center;
   margin-bottom: 28px;
   font-size: 14px;
+}
 
-  :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-    background-color: #007a3d;
-    border-color: #007a3d;
-  }
+.form-actions :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: #007a3d;
+  border-color: #007a3d;
+}
 
-  :deep(.el-checkbox__input.is-focus .el-checkbox__inner) {
-    border-color: #007a3d;
-  }
+.form-actions :deep(.el-checkbox__input.is-focus .el-checkbox__inner) {
+  border-color: #007a3d;
 }
 
 .login-btn {
@@ -412,15 +410,15 @@ async function login() {
   border: none;
   box-shadow: 0 4px 12px rgba(0, 122, 61, 0.25);
   transition: all 0.2s ease;
+}
 
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 122, 61, 0.35);
-  }
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 122, 61, 0.35);
+}
 
-  &:active {
-    transform: translateY(0);
-  }
+.login-btn:active {
+  transform: translateY(0);
 }
 
 .login-tip {
