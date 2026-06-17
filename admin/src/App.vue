@@ -147,7 +147,7 @@ const activeMenu = computed(() => route.path.startsWith('/tasksheets') ? '/tasks
 const currentUserAvatarBlobUrl = ref('')
 
 async function loadCurrentUserAvatar() {
-  if (!currentUser.value?.id || !currentUser.value.has_avatar) {
+  if (!currentUser.value?.id) {
     currentUserAvatarBlobUrl.value = ''
     return
   }
@@ -158,10 +158,18 @@ async function loadCurrentUserAvatar() {
     })
     if (res.ok) {
       const blob = await res.blob()
-      currentUserAvatarBlobUrl.value = URL.createObjectURL(blob)
+      // 确保返回的是有效图片（不是空响应）
+      if (blob.size > 0) {
+        currentUserAvatarBlobUrl.value = URL.createObjectURL(blob)
+      } else {
+        currentUserAvatarBlobUrl.value = ''
+      }
+    } else {
+      currentUserAvatarBlobUrl.value = ''
     }
   } catch (e) {
     console.warn('Failed to load header avatar:', e)
+    currentUserAvatarBlobUrl.value = ''
   }
 }
 
@@ -171,7 +179,7 @@ watch(currentUser, () => loadCurrentUserAvatar(), { immediate: true })
 // currentTitle 根据路由元信息生成面包屑标题。
 const currentTitle = computed(() => String(route.meta.title || '工作台'))
 
-// 监听路由变化，进入业务页面时自动创建或激活对应 Tab。
+// 监听路由变化，进入业务页面时自动创建或激活对应 Tab，并刷新头像
 watch(
   () => route.fullPath,
   () => {
@@ -182,6 +190,8 @@ watch(
     if (!tabs.value.some((item) => item.path === tab.path)) {
       tabs.value.push(tab)
     }
+    // 路由变化时刷新头像（从个人中心返回后更新）
+    loadCurrentUserAvatar()
   },
   { immediate: true, flush: 'post' }
 )

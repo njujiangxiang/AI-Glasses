@@ -136,6 +136,13 @@ async function uploadAvatar(options: UploadRequestOptions) {
   // 清除旧的 blob URL 并重新加载
   if (avatarBlobUrl.value) URL.revokeObjectURL(avatarBlobUrl.value)
   await load()
+  // 更新 localStorage 中的用户头像状态，供右上角显示
+  const stored = localStorage.getItem('admin_user')
+  if (stored) {
+    const userData = JSON.parse(stored)
+    userData.has_avatar = true
+    localStorage.setItem('admin_user', JSON.stringify(userData))
+  }
 }
 
 onMounted(load)
