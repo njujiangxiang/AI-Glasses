@@ -122,7 +122,7 @@ const master = reactive({
   orgName: '默认单位',
   planDate: '',
   ownerName: '',
-  priority: 'normal' as const,
+  priority: 'normal' as 'normal' | 'urgent',
   estimatedHours: 2,
   remark: ''
 })
