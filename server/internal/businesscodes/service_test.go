@@ -188,6 +188,10 @@ func TestGenerateDailyHappyPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Fix the test date to 2026-06-16
+	testDate := time.Date(2026, 6, 16, 10, 0, 0, 0, env.svc.location)
+	env.svc.SetNowForTest(func() time.Time { return testDate })
+
 	ctx := context.Background()
 	code1, err := env.svc.GenerateDaily(ctx, "TK")
 	if err != nil {
@@ -224,6 +228,10 @@ func TestGenerateDailyWithSeparator(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Fix the test date to 2026-06-16
+	testDate := time.Date(2026, 6, 16, 10, 0, 0, 0, env.svc.location)
+	env.svc.SetNowForTest(func() time.Time { return testDate })
+
 	ctx := context.Background()
 	code, err := env.svc.GenerateDaily(ctx, "TK")
 	if err != nil {
@@ -241,6 +249,10 @@ func TestGenerateDailyShortDateFormat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	// Fix the test date to 2026-06-16
+	testDate := time.Date(2026, 6, 16, 10, 0, 0, 0, env.svc.location)
+	env.svc.SetNowForTest(func() time.Time { return testDate })
 
 	ctx := context.Background()
 	code, err := env.svc.GenerateDaily(ctx, "TK")
