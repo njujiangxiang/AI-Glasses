@@ -1,4 +1,3 @@
-
 // Package database 定义 MVP 使用的持久化数据模型。模型覆盖用户、角色、设备生命周期、
 // 巡检模板、生成任务、证据附件、缺陷、审计日志以及调度/事件流水线使用的 outbox 事件。
 package database
@@ -26,11 +25,11 @@ type User struct {
 }
 
 type Organization struct {
-	ID         uint64 `gorm:"primaryKey" json:"id"`
-	Code       string `gorm:"size:64;uniqueIndex;not null" json:"code"`
-	Name       string `gorm:"size:128;not null" json:"name"`
-	ParentCode string `gorm:"size:64;index;not null;default:''" json:"parent_code"`
-	Status     string `gorm:"size:32;index;not null" json:"status"`
+	ID         uint64    `gorm:"primaryKey" json:"id"`
+	Code       string    `gorm:"size:64;uniqueIndex;not null" json:"code"`
+	Name       string    `gorm:"size:128;not null" json:"name"`
+	ParentCode string    `gorm:"size:64;index;not null;default:''" json:"parent_code"`
+	Status     string    `gorm:"size:32;index;not null" json:"status"`
 	CreatedAt  time.Time `json:"CreatedAt"`
 	UpdatedAt  time.Time `json:"UpdatedAt"`
 }
@@ -39,10 +38,14 @@ type BusinessCode struct {
 	ID           uint64 `gorm:"primaryKey;comment:业务编码配置ID，系统内部主键" json:"id"`
 	Name         string `gorm:"size:128;not null;comment:编码名称，用于后台展示规则用途" json:"name"`
 	Code         string `gorm:"size:64;uniqueIndex;not null;comment:业务代码，系统内唯一，例如TK" json:"code"`
+	UseDate      *bool  `gorm:"not null;default:true;comment:是否在编码中添加日期" json:"use_date"`
 	DateFormat   string `gorm:"size:32;not null;comment:日期格式，首版仅支持yyyyMMdd" json:"date_format"`
 	SeqPadding   int    `gorm:"not null;comment:流水号位数，例如4表示0001" json:"seq_padding"`
 	Separator    string `gorm:"size:8;not null;default:'';comment:分隔符，例如-，不使用时为空" json:"separator"`
 	UseSeparator bool   `gorm:"not null;default:false;comment:是否在代码、日期、流水号之间使用分隔符" json:"use_separator"`
+	UseOrgCode   bool   `gorm:"not null;default:false;comment:是否在编码中添加组织机构编码" json:"use_org_code"`
+	OrgSource    string `gorm:"size:32;not null;default:'fixed';comment:组织编码来源：fixed固定编码，current当前登录人组织" json:"org_source"`
+	OrgCode      string `gorm:"size:64;index;not null;default:'';comment:组织机构编码，启用组织编码时写入生成结果" json:"org_code"`
 	Status       string `gorm:"size:32;not null;default:'active';comment:编码状态：active启用，disabled停用" json:"status"`
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -109,25 +112,26 @@ type TeamMember struct {
 }
 
 type Device struct {
-	ID         uint64     `gorm:"primaryKey" json:"id"`
-	SerialNo   string     `gorm:"size:128;uniqueIndex;not null" json:"serial_no"`
-	Name       string     `gorm:"size:128" json:"name"`
-	Status     string     `gorm:"size:32;index;not null" json:"status"`
-	BoundUserID *uint64   `gorm:"index" json:"bound_user_id"`
-	BoundAt    *time.Time `json:"bound_at"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID          uint64     `gorm:"primaryKey" json:"id"`
+	SerialNo    string     `gorm:"size:128;uniqueIndex;not null" json:"serial_no"`
+	Name        string     `gorm:"size:128" json:"name"`
+	OrgCode     string     `gorm:"size:64;index;not null;default:''" json:"org_code"`
+	Status      string     `gorm:"size:32;index;not null" json:"status"`
+	BoundUserID *uint64    `gorm:"index" json:"bound_user_id"`
+	BoundAt     *time.Time `json:"bound_at"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 type DeviceSession struct {
-	ID            uint64    `gorm:"primaryKey" json:"id"`
-	DeviceID      uint64    `gorm:"index;not null" json:"device_id"`
-	UserID        uint64    `gorm:"index;not null" json:"user_id"`
-	RefreshJTI    string    `gorm:"size:64;uniqueIndex;not null" json:"refresh_jti"`
-	Status        string    `gorm:"size:32;index;not null" json:"status"`
-	RefreshUntil  time.Time `json:"refresh_until"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID           uint64    `gorm:"primaryKey" json:"id"`
+	DeviceID     uint64    `gorm:"index;not null" json:"device_id"`
+	UserID       uint64    `gorm:"index;not null" json:"user_id"`
+	RefreshJTI   string    `gorm:"size:64;uniqueIndex;not null" json:"refresh_jti"`
+	Status       string    `gorm:"size:32;index;not null" json:"status"`
+	RefreshUntil time.Time `json:"refresh_until"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 type DeviceAuditLog struct {
@@ -155,18 +159,18 @@ type TaskTypeDict struct {
 }
 
 type AlgorithmConfig struct {
-	ID            uint64    `gorm:"primaryKey" json:"id"`
-	Name          string    `gorm:"size:100" json:"name"`
-	Type          string    `gorm:"size:50" json:"type"`
-	ServiceURL    string    `gorm:"size:255" json:"service_url"`
-	CallMethod    string    `gorm:"size:20" json:"call_method"`
-	InputParams   string    `gorm:"size:512" json:"input_params"`
-	OutputParams  string    `gorm:"size:512" json:"output_params"`
-	Version       string    `gorm:"size:20" json:"version"`
-	IsEnable      bool      `gorm:"type:tinyint(1)" json:"is_enable"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	Remark        string    `gorm:"size:255" json:"remark"`
+	ID           uint64    `gorm:"primaryKey" json:"id"`
+	Name         string    `gorm:"size:100" json:"name"`
+	Type         string    `gorm:"size:50" json:"type"`
+	ServiceURL   string    `gorm:"size:255" json:"service_url"`
+	CallMethod   string    `gorm:"size:20" json:"call_method"`
+	InputParams  string    `gorm:"size:512" json:"input_params"`
+	OutputParams string    `gorm:"size:512" json:"output_params"`
+	Version      string    `gorm:"size:20" json:"version"`
+	IsEnable     bool      `gorm:"type:tinyint(1)" json:"is_enable"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Remark       string    `gorm:"size:255" json:"remark"`
 }
 
 type RealtimeQueryConfig struct {
@@ -253,78 +257,78 @@ type Workflow struct {
 // WorkflowStep 工作流步骤，支持多种输入类型和异常触发配置。
 // Type: text-文本输入, number-数值输入, select-选择清单, photo-拍照, video-录像, audio-录音
 type WorkflowStep struct {
-	ID                    uint64  `gorm:"primaryKey;comment:步骤ID" json:"id"`
-	WorkflowID            uint64  `gorm:"uniqueIndex:idx_workflow_sort;index;not null;comment:所属工作流ID" json:"workflow_id"`
-	SortOrder             int     `gorm:"uniqueIndex:idx_workflow_sort;not null;comment:排序序号" json:"sort_order"`
-	Name                  string  `gorm:"size:128;not null;comment:步骤名称" json:"name"`
-	Description           string  `gorm:"size:512;comment:步骤描述" json:"description"`
-	Type                  string  `gorm:"size:32;not null;comment:步骤类型：text,number,select,photo,video,audio" json:"type"`
-	Required              bool    `gorm:"not null;default:true;comment:是否必填" json:"required"`
-	OptionsJSON           *string `gorm:"type:json;comment:选择项配置JSON，仅select类型使用" json:"options_json"`
-	AbnormalEnabled       bool    `gorm:"not null;default:false;comment:是否启用异常触发" json:"abnormal_enabled"`
-	AbnormalRequirePhoto  bool    `gorm:"not null;default:true;comment:异常时必须拍照" json:"abnormal_require_photo"`
-	AbnormalRequireVideo  bool    `gorm:"not null;default:false;comment:异常时必须录像" json:"abnormal_require_video"`
-	AbnormalRequireNote   bool    `gorm:"not null;default:true;comment:异常时必须填写备注" json:"abnormal_require_note"`
-	AbnormalRequireSignature bool `gorm:"not null;default:false;comment:异常时必须签字确认" json:"abnormal_require_signature"`
-	CreatedAt             time.Time
-	UpdatedAt             time.Time
+	ID                       uint64  `gorm:"primaryKey;comment:步骤ID" json:"id"`
+	WorkflowID               uint64  `gorm:"uniqueIndex:idx_workflow_sort;index;not null;comment:所属工作流ID" json:"workflow_id"`
+	SortOrder                int     `gorm:"uniqueIndex:idx_workflow_sort;not null;comment:排序序号" json:"sort_order"`
+	Name                     string  `gorm:"size:128;not null;comment:步骤名称" json:"name"`
+	Description              string  `gorm:"size:512;comment:步骤描述" json:"description"`
+	Type                     string  `gorm:"size:32;not null;comment:步骤类型：text,number,select,photo,video,audio" json:"type"`
+	Required                 bool    `gorm:"not null;default:true;comment:是否必填" json:"required"`
+	OptionsJSON              *string `gorm:"type:json;comment:选择项配置JSON，仅select类型使用" json:"options_json"`
+	AbnormalEnabled          bool    `gorm:"not null;default:false;comment:是否启用异常触发" json:"abnormal_enabled"`
+	AbnormalRequirePhoto     bool    `gorm:"not null;default:true;comment:异常时必须拍照" json:"abnormal_require_photo"`
+	AbnormalRequireVideo     bool    `gorm:"not null;default:false;comment:异常时必须录像" json:"abnormal_require_video"`
+	AbnormalRequireNote      bool    `gorm:"not null;default:true;comment:异常时必须填写备注" json:"abnormal_require_note"`
+	AbnormalRequireSignature bool    `gorm:"not null;default:false;comment:异常时必须签字确认" json:"abnormal_require_signature"`
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
 }
 
 // ========== 任务计划 ==========
 
 type TaskPlan struct {
-	ID                 uint64    `gorm:"primaryKey" json:"id"`
-	TemplateID         uint64    `gorm:"index;not null" json:"template_id"`
-	Name               string    `gorm:"size:128;not null" json:"name"`
-	CronExpr           string    `gorm:"size:64;not null" json:"cron_expr"`
-	Timezone           string    `gorm:"size:64;not null" json:"timezone"`
-	StartAt            time.Time `gorm:"index;not null" json:"start_at"`
-	DueDurationMinutes int       `gorm:"not null" json:"due_duration_minutes"`
-	AssigneeType       string    `gorm:"size:16;not null" json:"assignee_type"`
-	AssigneeID         uint64    `gorm:"index;not null" json:"assignee_id"`
-	PointName          string    `gorm:"size:128" json:"point_name"`
-	EquipmentName      string    `gorm:"size:128" json:"equipment_name"`
-	Enabled            bool      `gorm:"index;not null" json:"enabled"`
-	PlanType           string    `gorm:"size:50" json:"plan_type"`
-	BelongUnit         string    `gorm:"size:100" json:"belong_unit"`
-	OperatorUnit       string    `gorm:"size:100" json:"operator_unit"`
-	SubstationName     string    `gorm:"size:100" json:"substation_name"`
-	InspectArea        string    `gorm:"size:256" json:"inspect_area"`
+	ID                 uint64     `gorm:"primaryKey" json:"id"`
+	TemplateID         uint64     `gorm:"index;not null" json:"template_id"`
+	Name               string     `gorm:"size:128;not null" json:"name"`
+	CronExpr           string     `gorm:"size:64;not null" json:"cron_expr"`
+	Timezone           string     `gorm:"size:64;not null" json:"timezone"`
+	StartAt            time.Time  `gorm:"index;not null" json:"start_at"`
+	DueDurationMinutes int        `gorm:"not null" json:"due_duration_minutes"`
+	AssigneeType       string     `gorm:"size:16;not null" json:"assignee_type"`
+	AssigneeID         uint64     `gorm:"index;not null" json:"assignee_id"`
+	PointName          string     `gorm:"size:128" json:"point_name"`
+	EquipmentName      string     `gorm:"size:128" json:"equipment_name"`
+	Enabled            bool       `gorm:"index;not null" json:"enabled"`
+	PlanType           string     `gorm:"size:50" json:"plan_type"`
+	BelongUnit         string     `gorm:"size:100" json:"belong_unit"`
+	OperatorUnit       string     `gorm:"size:100" json:"operator_unit"`
+	SubstationName     string     `gorm:"size:100" json:"substation_name"`
+	InspectArea        string     `gorm:"size:256" json:"inspect_area"`
 	PlanStartTime      *time.Time `json:"plan_start_time"`
 	PlanEndTime        *time.Time `json:"plan_end_time"`
-	PlanPrincipal      string    `gorm:"size:50" json:"plan_principal"`
-	OperatorUser       string    `gorm:"size:50" json:"operator_user"`
-	Guardian           string    `gorm:"size:50" json:"guardian"`
-	PlanDesc           string    `gorm:"size:256" json:"plan_desc"`
-	PlanStatus         string    `gorm:"size:20" json:"plan_status"`
-	Creator            string    `gorm:"size:50" json:"creator"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	PlanPrincipal      string     `gorm:"size:50" json:"plan_principal"`
+	OperatorUser       string     `gorm:"size:50" json:"operator_user"`
+	Guardian           string     `gorm:"size:50" json:"guardian"`
+	PlanDesc           string     `gorm:"size:256" json:"plan_desc"`
+	PlanStatus         string     `gorm:"size:20" json:"plan_status"`
+	Creator            string     `gorm:"size:50" json:"creator"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 type InspectionTask struct {
-	ID             uint64     `gorm:"primaryKey" json:"id"`
-	PlanID         uint64     `gorm:"uniqueIndex:idx_task_plan_schedule_assignee;index;not null" json:"plan_id"`
-	TemplateID     uint64     `gorm:"index;not null" json:"template_id"`
-	ScheduledAt    time.Time  `gorm:"uniqueIndex:idx_task_plan_schedule_assignee;index;not null" json:"scheduled_at"`
-	DueAt          time.Time  `gorm:"index;not null" json:"due_at"`
-	Status         string     `gorm:"size:32;index:idx_task_status_due_id,priority:1;not null" json:"status"`
-	AssigneeType   string     `gorm:"size:16;uniqueIndex:idx_task_plan_schedule_assignee;not null" json:"assignee_type"`
-	AssigneeID     uint64     `gorm:"uniqueIndex:idx_task_plan_schedule_assignee;index;not null" json:"assignee_id"`
-	ExecutorID     *uint64    `gorm:"index" json:"executor_id"`
-	PointName      string     `gorm:"size:128" json:"point_name"`
-	EquipmentName  string     `gorm:"size:128" json:"equipment_name"`
-	StartedAt      *time.Time `json:"started_at"`
-	SubmittedAt    *time.Time `json:"submitted_at"`
-	CompletedAt    *time.Time `json:"completed_at"`
-	CancelledAt    *time.Time `json:"cancelled_at"`
-	TaskName       string     `gorm:"size:255" json:"task_name"`
-	InspectArea    string     `gorm:"size:255" json:"inspect_area"`
-	GlassesSN      string     `gorm:"size:50" json:"glasses_sn"`
-	AssignUser     string     `gorm:"size:50" json:"assign_user"`
-	AssignTime     *time.Time `json:"assign_time"`
-	CreatedAt      time.Time  `gorm:"index:idx_task_status_due_id,priority:3" json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
+	ID            uint64     `gorm:"primaryKey" json:"id"`
+	PlanID        uint64     `gorm:"uniqueIndex:idx_task_plan_schedule_assignee;index;not null" json:"plan_id"`
+	TemplateID    uint64     `gorm:"index;not null" json:"template_id"`
+	ScheduledAt   time.Time  `gorm:"uniqueIndex:idx_task_plan_schedule_assignee;index;not null" json:"scheduled_at"`
+	DueAt         time.Time  `gorm:"index;not null" json:"due_at"`
+	Status        string     `gorm:"size:32;index:idx_task_status_due_id,priority:1;not null" json:"status"`
+	AssigneeType  string     `gorm:"size:16;uniqueIndex:idx_task_plan_schedule_assignee;not null" json:"assignee_type"`
+	AssigneeID    uint64     `gorm:"uniqueIndex:idx_task_plan_schedule_assignee;index;not null" json:"assignee_id"`
+	ExecutorID    *uint64    `gorm:"index" json:"executor_id"`
+	PointName     string     `gorm:"size:128" json:"point_name"`
+	EquipmentName string     `gorm:"size:128" json:"equipment_name"`
+	StartedAt     *time.Time `json:"started_at"`
+	SubmittedAt   *time.Time `json:"submitted_at"`
+	CompletedAt   *time.Time `json:"completed_at"`
+	CancelledAt   *time.Time `json:"cancelled_at"`
+	TaskName      string     `gorm:"size:255" json:"task_name"`
+	InspectArea   string     `gorm:"size:255" json:"inspect_area"`
+	GlassesSN     string     `gorm:"size:50" json:"glasses_sn"`
+	AssignUser    string     `gorm:"size:50" json:"assign_user"`
+	AssignTime    *time.Time `json:"assign_time"`
+	CreatedAt     time.Time  `gorm:"index:idx_task_status_due_id,priority:3" json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 type InspectionTaskNode struct {
@@ -350,25 +354,25 @@ type InspectionTaskNode struct {
 }
 
 type TaskNodeResult struct {
-	ID               uint64     `gorm:"primaryKey" json:"id"`
-	TaskID           uint64     `gorm:"uniqueIndex:idx_result_task_node;index;not null" json:"task_id"`
-	NodeID           uint64     `gorm:"uniqueIndex:idx_result_task_node;index;not null" json:"node_id"`
-	UserID           uint64     `gorm:"index;not null" json:"user_id"`
-	Status           string     `gorm:"size:32;not null" json:"status"`
-	TextNote         string     `gorm:"type:text" json:"text_note"`
-	IdempotencyKey   string     `gorm:"size:128;index;not null" json:"idempotency_key"`
-	CompletedAt      time.Time  `json:"completed_at"`
-	TaskTypeCode     string     `gorm:"size:32" json:"task_type_code"`
-	FeedbackContent  string     `gorm:"size:512" json:"feedback_content"`
-	AlgorithmResult  string     `gorm:"size:512" json:"algorithm_result"`
-	QueryResult      string     `gorm:"size:512" json:"query_result"`
-	LocationGPS      string     `gorm:"size:50" json:"location_gps"`
-	AttachmentIDs    string     `gorm:"size:256" json:"attachment_ids"`
-	IsAbnormal       bool       `gorm:"type:tinyint(1)" json:"is_abnormal"`
-	AbnormalDesc     string     `gorm:"size:128" json:"abnormal_desc"`
-	Remark           string     `gorm:"size:128" json:"remark"`
-	CreatedAt        time.Time  `json:"created_at"`
-	UpdatedAt        time.Time  `json:"updated_at"`
+	ID              uint64    `gorm:"primaryKey" json:"id"`
+	TaskID          uint64    `gorm:"uniqueIndex:idx_result_task_node;index;not null" json:"task_id"`
+	NodeID          uint64    `gorm:"uniqueIndex:idx_result_task_node;index;not null" json:"node_id"`
+	UserID          uint64    `gorm:"index;not null" json:"user_id"`
+	Status          string    `gorm:"size:32;not null" json:"status"`
+	TextNote        string    `gorm:"type:text" json:"text_note"`
+	IdempotencyKey  string    `gorm:"size:128;index;not null" json:"idempotency_key"`
+	CompletedAt     time.Time `json:"completed_at"`
+	TaskTypeCode    string    `gorm:"size:32" json:"task_type_code"`
+	FeedbackContent string    `gorm:"size:512" json:"feedback_content"`
+	AlgorithmResult string    `gorm:"size:512" json:"algorithm_result"`
+	QueryResult     string    `gorm:"size:512" json:"query_result"`
+	LocationGPS     string    `gorm:"size:50" json:"location_gps"`
+	AttachmentIDs   string    `gorm:"size:256" json:"attachment_ids"`
+	IsAbnormal      bool      `gorm:"type:tinyint(1)" json:"is_abnormal"`
+	AbnormalDesc    string    `gorm:"size:128" json:"abnormal_desc"`
+	Remark          string    `gorm:"size:128" json:"remark"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type Attachment struct {

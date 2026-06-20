@@ -10,11 +10,24 @@
     <el-table :data="businessCodes" stripe row-key="id">
       <el-table-column prop="name" label="编码名称" />
       <el-table-column prop="code" label="代码" width="120" />
-      <el-table-column prop="date_format" label="日期格式" width="120" />
+      <el-table-column label="日期" width="120">
+        <template #default="scope">
+          {{ scope.row.use_date ? scope.row.date_format : '不添加' }}
+        </template>
+      </el-table-column>
       <el-table-column prop="seq_padding" label="流水号位数" width="120" />
       <el-table-column label="分隔符" width="120">
         <template #default="scope">
           {{ scope.row.use_separator ? scope.row.separator : '无' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="组织编码" width="200">
+        <template #default="scope">
+          <template v-if="scope.row.use_org_code">
+            <span v-if="scope.row.org_source === 'current'">当前用户机构</span>
+            <span v-else>{{ orgLabel(scope.row.org_code) }}</span>
+          </template>
+          <span v-else class="muted-text">未启用</span>
         </template>
       </el-table-column>
       <el-table-column prop="status" label="状态" width="120">
@@ -45,7 +58,10 @@
       <el-form-item label="代码" prop="code">
         <el-input v-model="form.code" placeholder="如 TK，保存时自动转大写" />
       </el-form-item>
-      <el-form-item label="日期格式" prop="date_format">
+      <el-form-item label="添加日期" prop="use_date">
+        <el-switch v-model="form.use_date" />
+      </el-form-item>
+      <el-form-item v-if="form.use_date" label="日期格式" prop="date_format">
         <el-select v-model="form.date_format">
           <el-option label="yyyyMMdd（20260616）" value="yyyyMMdd" />
           <el-option label="yyMMdd（260616）" value="yyMMdd" />
@@ -59,6 +75,20 @@
       </el-form-item>
       <el-form-item v-if="form.use_separator" label="分隔符" prop="separator">
         <el-input v-model="form.separator" placeholder="如 - 或 /" maxlength="8" />
+      </el-form-item>
+      <el-form-item label="添加组织编码" prop="use_org_code">
+        <el-switch v-model="form.use_org_code" />
+      </el-form-item>
+      <el-form-item v-if="form.use_org_code" label="组织编码来源" prop="org_source">
+        <el-radio-group v-model="form.org_source">
+          <el-radio label="fixed">固定组织编码</el-radio>
+          <el-radio label="current">当前登录人所在机构</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item v-if="form.use_org_code && form.org_source === 'fixed'" label="组织机构编码" prop="org_code">
+        <el-select v-model="form.org_code" clearable filterable placeholder="请选择公司/组织编码">
+          <el-option v-for="org in organizations" :key="org.code" :label="`${org.name}（${org.code}）`" :value="org.code" />
+        </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="form.status">
@@ -102,15 +132,22 @@ type BusinessCode = {
   id: number
   name: string
   code: string
+  use_date: boolean
   date_format: string
   seq_padding: number
   separator: string
   use_separator: boolean
+  use_org_code: boolean
+  org_source: string
+  org_code: string
   status: string
   CreatedAt: string
 }
 
+type Organization = { id: number; code: string; name: string }
+
 const businessCodes = ref<BusinessCode[]>([])
+const organizations = ref<Organization[]>([])
 const dialogVisible = ref(false)
 const generateDialogVisible = ref(false)
 const editingId = ref<number | null>(null)
@@ -121,10 +158,14 @@ const generateError = ref<string>('')
 const form = reactive({
   name: '',
   code: '',
+  use_date: true,
   date_format: 'yyyyMMdd',
   seq_padding: 4,
   separator: '',
   use_separator: false,
+  use_org_code: false,
+  org_source: 'fixed',
+  org_code: '',
   status: 'active'
 })
 
@@ -135,7 +176,16 @@ const rules: FormRules = {
     { pattern: /^[A-Za-z0-9_-]{1,64}$/, message: '只能包含字母、数字、下划线和中划线', trigger: 'blur' }
   ],
   date_format: [{ required: true, message: '请选择日期格式', trigger: 'change' }],
-  seq_padding: [{ required: true, message: '请输入流水号位数', trigger: 'blur' }]
+  seq_padding: [{ required: true, message: '请输入流水号位数', trigger: 'blur' }],
+  org_code: [
+    {
+      validator: (_rule, value, callback) => {
+        if (form.use_org_code && !value) callback(new Error('请选择组织机构编码'))
+        else callback()
+      },
+      trigger: 'change'
+    }
+  ]
 }
 
 // 使用 Asia/Shanghai 时区生成预览代码
@@ -148,16 +198,42 @@ const previewCode = computed(() => {
   const dateStr = `${year}${month}${day}`
   const seqStr = '1'.padStart(form.seq_padding, '0')
   const code = form.code.toUpperCase()
+  const parts = [code]
+  if (form.use_org_code) {
+    if (form.org_source === 'current') {
+      parts.push('[当前用户组织]')
+    } else if (form.org_code) {
+      parts.push(form.org_code)
+    }
+  }
+  if (form.use_date) parts.push(dateStr)
+  parts.push(seqStr)
 
   if (form.use_separator && form.separator) {
-    return `${code}${form.separator}${dateStr}${form.separator}${seqStr}`
+    return parts.join(form.separator)
   }
-  return `${code}${dateStr}${seqStr}`
+  return parts.join('')
+})
+
+const orgNameMap = computed(() => {
+  const map = new Map<string, string>()
+  organizations.value.forEach((org) => map.set(org.code, org.name))
+  return map
 })
 
 // load 查询业务编码配置列表并刷新表格。
 async function load() {
   businessCodes.value = await apiGet<BusinessCode[]>('/api/admin/business-codes')
+}
+
+async function loadOrganizations() {
+  organizations.value = await apiGet<Organization[]>('/api/admin/organizations')
+}
+
+function orgLabel(code: string) {
+  if (!code) return '未选择'
+  const name = orgNameMap.value.get(code)
+  return name ? `${name}（${code}）` : code
 }
 
 // openCreate 打开新增编码规则弹窗。
@@ -166,10 +242,14 @@ function openCreate() {
   Object.assign(form, {
     name: '',
     code: '',
+    use_date: true,
     date_format: 'yyyyMMdd',
     seq_padding: 4,
     separator: '',
     use_separator: false,
+    use_org_code: false,
+    org_source: 'fixed',
+    org_code: '',
     status: 'active'
   })
   dialogVisible.value = true
@@ -181,10 +261,14 @@ function openEdit(row: BusinessCode) {
   Object.assign(form, {
     name: row.name,
     code: row.code,
+    use_date: row.use_date ?? true,
     date_format: row.date_format,
     seq_padding: row.seq_padding,
     separator: row.separator,
     use_separator: row.use_separator,
+    use_org_code: row.use_org_code,
+    org_source: row.org_source || 'fixed',
+    org_code: row.org_code || '',
     status: row.status
   })
   dialogVisible.value = true
@@ -194,10 +278,15 @@ function openEdit(row: BusinessCode) {
 async function submit() {
   try {
     await formRef.value?.validate()
+    const payload = {
+      ...form,
+      org_code: form.use_org_code ? form.org_code : '',
+      org_source: form.use_org_code ? form.org_source : 'fixed'
+    }
     if (editingId.value) {
-      await apiPost(`/api/admin/business-codes/${editingId.value}/update`, form)
+      await apiPost(`/api/admin/business-codes/${editingId.value}/update`, payload)
     } else {
-      await apiPost('/api/admin/business-codes', form)
+      await apiPost('/api/admin/business-codes', payload)
     }
     ElMessage.success('保存成功')
     dialogVisible.value = false
@@ -245,10 +334,17 @@ async function testGenerate(row: BusinessCode) {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadOrganizations()
+})
 </script>
 
 <style scoped>
+.muted-text {
+  color: #909399;
+}
+
 .preview-text {
   font-family: monospace;
   font-size: 18px;

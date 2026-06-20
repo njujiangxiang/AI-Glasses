@@ -11,6 +11,29 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// defaultBusinessCodes 返回系统默认的业务编码规则，用于初始化时自动创建。
+func defaultBusinessCodes() []database.BusinessCode {
+	now := time.Now().UTC()
+	return []database.BusinessCode{
+		{
+			Name:         "AI 眼镜设备编码",
+			Code:         "GLASS",
+			UseDate:      boolPtr(false),
+			DateFormat:   "yyyyMMdd",
+			SeqPadding:   4,
+			Separator:    "-",
+			UseSeparator: true,
+			UseOrgCode:   true,
+			OrgCode:      "ROOT",
+			Status:       "active",
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		},
+	}
+}
+
+func boolPtr(b bool) *bool { return &b }
+
 // Run 在事务中写入默认角色、用户、班组和演示设备，重复执行不会产生重复数据。
 func Run(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
@@ -105,6 +128,13 @@ func Run(db *gorm.DB) error {
 		device := database.Device{SerialNo: "GLASS-DEMO-001", Name: "演示智能眼镜", Status: "active", BoundUserID: &inspector.ID, BoundAt: &now}
 		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "serial_no"}}, DoUpdates: clause.AssignmentColumns([]string{"name", "status", "bound_user_id", "bound_at"})}).Create(&device).Error; err != nil {
 			return err
+		}
+
+		// 创建默认业务编码规则：AI 眼镜设备编码
+		for _, bc := range defaultBusinessCodes() {
+			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "code"}}, DoUpdates: clause.AssignmentColumns([]string{"name", "use_date", "date_format", "seq_padding", "separator", "use_separator", "use_org_code", "org_code", "status"})}).Create(&bc).Error; err != nil {
+				return err
+			}
 		}
 		return nil
 	})

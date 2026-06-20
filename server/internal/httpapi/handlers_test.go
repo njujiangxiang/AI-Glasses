@@ -558,7 +558,7 @@ func TestRecentMonitorLogsRequiresAuth(t *testing.T) {
 	}
 }
 
-func TestRecentMonitorLogsRejectsNonSuperAdminWithPermission(t *testing.T) {
+func TestRecentMonitorLogsAllowsAnyRoleWithPermission(t *testing.T) {
 	env := setupHandlerTest(t)
 	role := database.Role{Name: "普通管理员", Code: "normal", DataScope: database.DataScopeAll, Status: "active"}
 	if err := env.db.Create(&role).Error; err != nil {
@@ -590,8 +590,8 @@ func TestRecentMonitorLogsRejectsNonSuperAdminWithPermission(t *testing.T) {
 	w := httptest.NewRecorder()
 	env.router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusForbidden {
-		t.Fatalf("expected status 403, got %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", w.Code, w.Body.String())
 	}
 }
 

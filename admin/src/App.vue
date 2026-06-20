@@ -149,7 +149,8 @@ async function loadMenus() {
             { path: '/users', title: '用户管理', icon: User },
             { path: '/roles', title: '角色管理', icon: UserFilled },
             { path: '/menus', title: '菜单权限', icon: Menu },
-            { path: '/business-codes', title: '业务编码配置', icon: Key }
+            { path: '/business-codes', title: '业务编码配置', icon: Key },
+            { path: '/monitoring/logs', title: '实时监控', icon: Monitor }
           ]
         }
       ]

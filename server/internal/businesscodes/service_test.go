@@ -28,7 +28,13 @@ func setupTest(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := db.AutoMigrate(&database.BusinessCode{}); err != nil {
+	if err := db.AutoMigrate(&database.BusinessCode{}, &database.Organization{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&database.Organization{Code: "ROOT", Name: "默认单位", Status: "active"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&database.Organization{Code: "DISABLED", Name: "停用单位", Status: "disabled"}).Error; err != nil {
 		t.Fatal(err)
 	}
 	mr, err := miniredis.Run()
@@ -239,6 +245,160 @@ func TestGenerateDailyWithSeparator(t *testing.T) {
 	}
 	if code != "TK-20260616-0001" {
 		t.Errorf("expected TK-20260616-0001, got %s", code)
+	}
+}
+
+func TestGenerateDailyWithoutDateUsesGlobalSequence(t *testing.T) {
+	env := setupTest(t)
+	useDate := false
+
+	_, err := env.svc.Create(Input{Name: "Test", Code: "TK", UseDate: &useDate, DateFormat: DateFormatDaily, SeqPadding: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	code1, err := env.svc.GenerateDaily(ctx, "TK")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code1 != "TK0001" {
+		t.Errorf("expected TK0001, got %s", code1)
+	}
+
+	env.svc.SetNowForTest(func() time.Time { return time.Date(2026, 6, 17, 10, 0, 0, 0, env.svc.location) })
+	code2, err := env.svc.GenerateDaily(ctx, "TK")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code2 != "TK0002" {
+		t.Errorf("expected TK0002 after date rollover, got %s", code2)
+	}
+	if !env.redis.Exists("BNO:TK:global") {
+		t.Error("expected global Redis key to exist")
+	}
+	if ttl := env.redis.TTL("BNO:TK:global"); ttl != 0 {
+		t.Errorf("expected global key without TTL, got %v", ttl)
+	}
+}
+
+func TestGenerateDailyWithoutDateWithOrgAndSeparator(t *testing.T) {
+	env := setupTest(t)
+	useDate := false
+
+	_, err := env.svc.Create(Input{Name: "Test", Code: "TK", UseDate: &useDate, DateFormat: DateFormatDaily, SeqPadding: 4, UseSeparator: true, Separator: "-", UseOrgCode: true, OrgCode: "ROOT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, err := env.svc.GenerateDaily(context.Background(), "TK")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != "TK-ROOT-0001" {
+		t.Errorf("expected TK-ROOT-0001, got %s", code)
+	}
+	if !env.redis.Exists("BNO:TK:ROOT:global") {
+		t.Error("expected org global Redis key to exist")
+	}
+	if ttl := env.redis.TTL("BNO:TK:ROOT:global"); ttl != 0 {
+		t.Errorf("expected org global key without TTL, got %v", ttl)
+	}
+}
+
+func TestGenerateDailyWithOrgCode(t *testing.T) {
+	env := setupTest(t)
+
+	_, err := env.svc.Create(Input{Name: "Test", Code: "TK", DateFormat: DateFormatDaily, SeqPadding: 4, UseOrgCode: true, OrgCode: "ROOT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	code, err := env.svc.GenerateDaily(ctx, "TK")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != "TKROOT202606160001" {
+		t.Errorf("expected TKROOT202606160001, got %s", code)
+	}
+	if !env.redis.Exists("BNO:TK:20260616:ROOT") {
+		t.Error("expected org daily Redis key to exist")
+	}
+}
+
+func TestGenerateDailyWithOrgCodeAndSeparator(t *testing.T) {
+	env := setupTest(t)
+
+	_, err := env.svc.Create(Input{Name: "Test", Code: "TK", DateFormat: DateFormatDaily, SeqPadding: 4, UseSeparator: true, Separator: "-", UseOrgCode: true, OrgCode: "ROOT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	code, err := env.svc.GenerateDaily(ctx, "TK")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != "TK-ROOT-20260616-0001" {
+		t.Errorf("expected TK-ROOT-20260616-0001, got %s", code)
+	}
+}
+
+func TestBusinessCodeOrgValidation(t *testing.T) {
+	env := setupTest(t)
+
+	_, err := env.svc.Create(Input{Name: "Test", Code: "TK", DateFormat: DateFormatDaily, SeqPadding: 4, UseOrgCode: true})
+	if !isValidationError(err) {
+		t.Errorf("expected validation error for missing org code, got %v", err)
+	}
+
+	_, err = env.svc.Create(Input{Name: "Test", Code: "TK", DateFormat: DateFormatDaily, SeqPadding: 4, UseOrgCode: true, OrgCode: "DISABLED"})
+	if !isValidationError(err) {
+		t.Errorf("expected validation error for disabled org code, got %v", err)
+	}
+}
+
+func TestGenerateDailyRejectsDisabledOrgWithoutConsumingSequence(t *testing.T) {
+	env := setupTest(t)
+
+	_, err := env.svc.Create(Input{Name: "Test", Code: "TK", DateFormat: DateFormatDaily, SeqPadding: 4, UseOrgCode: true, OrgCode: "ROOT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := env.db.Model(&database.Organization{}).Where("code = ?", "ROOT").Update("status", "disabled").Error; err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = env.svc.GenerateDaily(context.Background(), "TK")
+	if !isValidationError(err) {
+		t.Fatalf("expected validation error for disabled org during generation, got %v", err)
+	}
+	if env.redis.Exists("BNO:TK:20260616") {
+		t.Fatal("expected no Redis sequence consumption when org is disabled")
+	}
+}
+
+func TestUpdateDisablesOrgCode(t *testing.T) {
+	env := setupTest(t)
+
+	rule, err := env.svc.Create(Input{Name: "Test", Code: "TK", DateFormat: DateFormatDaily, SeqPadding: 4, UseOrgCode: true, OrgCode: "ROOT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, err := env.svc.Update(rule.ID, Input{Name: "Test", DateFormat: DateFormatDaily, SeqPadding: 4, UseOrgCode: false, OrgCode: "ROOT"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.UseOrgCode || updated.OrgCode != "" {
+		t.Fatalf("expected org code disabled and cleared, got use=%v org=%q", updated.UseOrgCode, updated.OrgCode)
+	}
+	code, err := env.svc.GenerateDaily(context.Background(), "TK")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != "TK202606160001" {
+		t.Errorf("expected TK202606160001, got %s", code)
 	}
 }
 

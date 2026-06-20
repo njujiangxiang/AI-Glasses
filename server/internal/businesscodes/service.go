@@ -32,12 +32,12 @@ var goDateFormats = map[string]string{
 
 var (
 	codePattern = regexp.MustCompile(`^[A-Z0-9_-]{1,64}$`)
-	incrScript = `local current = tonumber(redis.call('GET', KEYS[1]) or '0')
+	incrScript  = `local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 if current >= tonumber(ARGV[2]) then
   return current + 1
 end
 current = redis.call('INCR', KEYS[1])
-if current == 1 then
+if current == 1 and tonumber(ARGV[1]) > 0 then
   redis.call('EXPIRE', KEYS[1], ARGV[1])
 end
 return current`
@@ -47,10 +47,14 @@ return current`
 type Input struct {
 	Name         string `json:"name"`
 	Code         string `json:"code"`
+	UseDate      *bool  `json:"use_date"`
 	DateFormat   string `json:"date_format"`
 	SeqPadding   int    `json:"seq_padding"`
 	Separator    string `json:"separator"`
 	UseSeparator bool   `json:"use_separator"`
+	UseOrgCode   bool   `json:"use_org_code"`
+	OrgSource    string `json:"org_source"`
+	OrgCode      string `json:"org_code"`
 	Status       string `json:"status"`
 }
 
@@ -81,15 +85,22 @@ func (s *Service) SetNowForTest(now func() time.Time) {
 
 // Create 创建业务编码规则。
 func (s *Service) Create(input Input) (database.BusinessCode, error) {
+	useDate := inputUseDate(input.UseDate)
+	orgSource := normalizeOrgSource(input.OrgSource)
 	model := database.BusinessCode{
 		Name:         strings.TrimSpace(input.Name),
 		Code:         normalizeCode(input.Code),
+		UseDate:      &useDate,
 		DateFormat:   normalizeDateFormat(input.DateFormat),
 		SeqPadding:   input.SeqPadding,
 		Separator:    strings.TrimSpace(input.Separator),
 		UseSeparator: input.UseSeparator,
+		UseOrgCode:   input.UseOrgCode,
+		OrgSource:    orgSource,
+		OrgCode:      strings.TrimSpace(input.OrgCode),
 		Status:       normalizeStatus(input.Status),
 	}
+	normalizeOrgCode(&model)
 	if err := s.validate(model, 0); err != nil {
 		return database.BusinessCode{}, err
 	}
@@ -110,11 +121,17 @@ func (s *Service) Update(id uint64, input Input) (database.BusinessCode, error) 
 	}
 	model.Name = strings.TrimSpace(input.Name)
 	// Code 不可变：保持数据库中的原始值，忽略 input.Code。
+	useDate := inputUseDate(input.UseDate)
+	model.UseDate = &useDate
 	model.DateFormat = normalizeDateFormat(input.DateFormat)
 	model.SeqPadding = input.SeqPadding
 	model.Separator = strings.TrimSpace(input.Separator)
 	model.UseSeparator = input.UseSeparator
+	model.UseOrgCode = input.UseOrgCode
+	model.OrgSource = normalizeOrgSource(input.OrgSource)
+	model.OrgCode = strings.TrimSpace(input.OrgCode)
 	model.Status = normalizeStatus(input.Status)
+	normalizeOrgCode(&model)
 	if err := s.validate(model, id); err != nil {
 		return database.BusinessCode{}, err
 	}
@@ -171,7 +188,8 @@ func (s *Service) Delete(id uint64) error {
 // 流水号由 Redis INCR 分配，不参与调用方的数据库事务。调用方如果在生成编号后回滚
 // 自己的事务，会留下流水号空洞；这是该公共方法的预期语义，业务接入方必须接受空洞，
 // 不要为了连续性把编号生成放回本地内存或数据库锁里。
-func (s *Service) GenerateDaily(ctx context.Context, code string) (string, error) {
+// orgSource 为 "current" 时，从上下文中获取当前登录用户的组织编码。
+func (s *Service) GenerateDaily(ctx context.Context, code string, currentUserOrgCode string) (string, error) {
 	code = normalizeCode(code)
 	if code == "" {
 		return "", httperr.New(httperr.ValidationFailed, "请输入业务编码代码")
@@ -189,15 +207,43 @@ func (s *Service) GenerateDaily(ctx context.Context, code string) (string, error
 	if cfg.Status != StatusActive {
 		return "", httperr.New(httperr.ValidationFailed, fmt.Sprintf("业务编码 %s 的状态不正确", code))
 	}
+	// 验证组织编码
+	if cfg.UseOrgCode {
+		var orgCodeToValidate string
+		if cfg.OrgSource == "current" {
+			// 使用当前登录人的组织编码
+			orgCodeToValidate = currentUserOrgCode
+		} else {
+			orgCodeToValidate = cfg.OrgCode
+		}
+		if orgCodeToValidate == "" {
+			return "", httperr.New(httperr.ValidationFailed, "组织编码不能为空")
+		}
+		if err := s.validateActiveOrg(orgCodeToValidate); err != nil {
+			return "", err
+		}
+	}
 
 	now := s.now().In(s.location)
-	goFmt := goDateFormats[cfg.DateFormat]
-	date := now.Format(goFmt)
-	// Redis key 统一使用完整日期（yyyyMMdd），避免 yyMMdd 跨世纪冲突。
-	keyDate := now.Format("20060102")
-	key := fmt.Sprintf("BNO:%s:%s", cfg.Code, keyDate)
+	date := ""
+	// 确定最终使用的组织编码
+	var finalOrgCode string
+	if cfg.UseOrgCode {
+		if cfg.OrgSource == "current" {
+			finalOrgCode = currentUserOrgCode
+		} else {
+			finalOrgCode = cfg.OrgCode
+		}
+	}
+	key := redisKeyWithOrgCode(cfg, finalOrgCode, now)
+	ttl := 0
+	if useDateValue(cfg.UseDate) {
+		goFmt := goDateFormats[cfg.DateFormat]
+		date = now.Format(goFmt)
+		ttl = redisTTLSeconds
+	}
 	maxSeq := int64(math.Pow10(cfg.SeqPadding)) - 1
-	result, err := s.redis.Eval(ctx, incrScript, []string{key}, redisTTLSeconds, maxSeq).Int64()
+	result, err := s.redis.Eval(ctx, incrScript, []string{key}, ttl, maxSeq).Int64()
 	if err != nil {
 		return "", httperr.New(httperr.InternalError, "业务编码流水号服务不可用，请检查 Redis")
 	}
@@ -205,10 +251,18 @@ func (s *Service) GenerateDaily(ctx context.Context, code string) (string, error
 		return "", httperr.New(httperr.ValidationFailed, "当日流水号已超出位数上限，请调整流水号位数")
 	}
 	seq := fmt.Sprintf("%0*d", cfg.SeqPadding, result)
-	if cfg.UseSeparator {
-		return strings.Join([]string{cfg.Code, date, seq}, cfg.Separator), nil
+	parts := []string{cfg.Code}
+	if cfg.UseOrgCode {
+		parts = append(parts, finalOrgCode)
 	}
-	return cfg.Code + date + seq, nil
+	if useDateValue(cfg.UseDate) {
+		parts = append(parts, date)
+	}
+	parts = append(parts, seq)
+	if cfg.UseSeparator {
+		return strings.Join(parts, cfg.Separator), nil
+	}
+	return strings.Join(parts, ""), nil
 }
 
 func (s *Service) setStatus(id uint64, status string) error {
@@ -229,14 +283,24 @@ func (s *Service) validate(model database.BusinessCode, currentID uint64) error 
 	if !codePattern.MatchString(model.Code) {
 		return httperr.New(httperr.ValidationFailed, "业务编码代码只能包含大写字母、数字、下划线和中划线")
 	}
-	if _, ok := goDateFormats[model.DateFormat]; !ok {
-		return httperr.New(httperr.ValidationFailed, fmt.Sprintf("业务编码 %s 的日期格式不正确，支持 yyyyMMdd 和 yyMMdd", model.Code))
+	if useDateValue(model.UseDate) {
+		if _, ok := goDateFormats[model.DateFormat]; !ok {
+			return httperr.New(httperr.ValidationFailed, fmt.Sprintf("业务编码 %s 的日期格式不正确，支持 yyyyMMdd 和 yyMMdd", model.Code))
+		}
 	}
 	if model.SeqPadding < 1 || model.SeqPadding > 12 {
 		return httperr.New(httperr.ValidationFailed, fmt.Sprintf("业务编码 %s 的流水号位数不正确", model.Code))
 	}
 	if model.UseSeparator && model.Separator == "" {
 		return httperr.New(httperr.ValidationFailed, "启用分隔符时请填写分隔符")
+	}
+	if model.UseOrgCode {
+		// OrgSource 为 "current" 时，OrgCode 字段不用于验证，实际使用时从当前用户获取
+		if model.OrgSource != "current" && model.OrgCode != "" {
+			if err := s.validateActiveOrg(model.OrgCode); err != nil {
+				return err
+			}
+		}
 	}
 	if len([]rune(model.Separator)) > 8 {
 		return httperr.New(httperr.ValidationFailed, "分隔符长度不能超过8个字符")
@@ -254,6 +318,79 @@ func (s *Service) validate(model database.BusinessCode, currentID uint64) error 
 }
 
 func normalizeCode(code string) string { return strings.ToUpper(strings.TrimSpace(code)) }
+
+func inputUseDate(useDate *bool) bool {
+	if useDate == nil {
+		return true
+	}
+	return *useDate
+}
+
+func useDateValue(useDate *bool) bool {
+	if useDate == nil {
+		return true
+	}
+	return *useDate
+}
+
+func redisKey(cfg database.BusinessCode, now time.Time) string {
+	if useDateValue(cfg.UseDate) {
+		// Redis key 统一使用完整日期（yyyyMMdd），避免 yyMMdd 跨世纪冲突。
+		keyDate := now.Format("20060102")
+		if cfg.UseOrgCode {
+			return fmt.Sprintf("BNO:%s:%s:%s", cfg.Code, keyDate, cfg.OrgCode)
+		}
+		return fmt.Sprintf("BNO:%s:%s", cfg.Code, keyDate)
+	}
+	if cfg.UseOrgCode {
+		return fmt.Sprintf("BNO:%s:%s:global", cfg.Code, cfg.OrgCode)
+	}
+	return fmt.Sprintf("BNO:%s:global", cfg.Code)
+}
+
+// redisKeyWithOrgCode 使用指定的组织编码生成 Redis key。
+func redisKeyWithOrgCode(cfg database.BusinessCode, orgCode string, now time.Time) string {
+	if useDateValue(cfg.UseDate) {
+		keyDate := now.Format("20060102")
+		if cfg.UseOrgCode && orgCode != "" {
+			return fmt.Sprintf("BNO:%s:%s:%s", cfg.Code, keyDate, orgCode)
+		}
+		return fmt.Sprintf("BNO:%s:%s", cfg.Code, keyDate)
+	}
+	if cfg.UseOrgCode && orgCode != "" {
+		return fmt.Sprintf("BNO:%s:%s:global", cfg.Code, orgCode)
+	}
+	return fmt.Sprintf("BNO:%s:global", cfg.Code)
+}
+
+func normalizeOrgSource(source string) string {
+	if source == "current" {
+		return "current"
+	}
+	return "fixed"
+}
+
+func normalizeOrgCode(model *database.BusinessCode) {
+	model.OrgCode = strings.TrimSpace(model.OrgCode)
+	if !model.UseOrgCode {
+		model.OrgCode = ""
+	}
+}
+
+func (s *Service) validateActiveOrg(orgCode string) error {
+	orgCode = strings.TrimSpace(orgCode)
+	if orgCode == "" {
+		return httperr.New(httperr.ValidationFailed, "启用组织机构编码时请选择组织机构")
+	}
+	var count int64
+	if err := s.db.Model(&database.Organization{}).Where("code = ? AND status = ?", orgCode, StatusActive).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return httperr.New(httperr.ValidationFailed, "组织机构不存在或已停用")
+	}
+	return nil
+}
 
 // escapeLike 转义 SQL LIKE 通配符，防止用户输入中的 % _ \ 被解释为模式匹配。
 func escapeLike(s string) string {

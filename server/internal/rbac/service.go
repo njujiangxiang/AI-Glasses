@@ -15,11 +15,13 @@ type Service struct {
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
+// CanViewMonitor 校验当前用户是否拥有实时监控查看权限。
+//
+// 权限完全由 system:monitor:view 控制（见 handlers.go 中 /monitoring/logs/recent
+// 的注释："权限由 system:monitor:view 单独控制"）。这里不再叠加角色码白名单：
+// 角色码在历史数据中可能漂移（例如旧版 seed 写入的 role_1、init_rbac 写入的
+// super_admin、新版 seed 写入的 admin 不一致），白名单会让"已分配权限"的用户被误拒。
 func (s *Service) CanViewMonitor(userID uint64) error {
-	return s.HasRoleAndPermission(userID, []string{"admin", "super_admin"}, MonitorViewPerm)
-}
-
-func (s *Service) HasRoleAndPermission(userID uint64, roleCodes []string, perm string) error {
 	if s == nil || s.db == nil {
 		return httperr.New(httperr.AuthForbidden, "无权查看实时监控")
 	}
@@ -40,16 +42,13 @@ func (s *Service) HasRoleAndPermission(userID uint64, roleCodes []string, perm s
 		}
 		return err
 	}
-	if !contains(roleCodes, role.Code) {
-		return httperr.New(httperr.AuthForbidden, "无权查看实时监控")
-	}
 
 	var count int64
 	err := s.db.Table("role_permissions").
 		Joins("JOIN permissions ON permissions.id = role_permissions.permission_id").
 		Where("role_permissions.role_id = ?", role.ID).
 		Where("permissions.status = ?", "active").
-		Where("permissions.perms = ? OR permissions.code = ?", perm, perm).
+		Where("permissions.perms = ? OR permissions.code = ?", MonitorViewPerm, MonitorViewPerm).
 		Count(&count).Error
 	if err != nil {
 		return err
@@ -58,13 +57,4 @@ func (s *Service) HasRoleAndPermission(userID uint64, roleCodes []string, perm s
 		return httperr.New(httperr.AuthForbidden, "无权查看实时监控")
 	}
 	return nil
-}
-
-func contains(values []string, target string) bool {
-	for _, value := range values {
-		if value == target {
-			return true
-		}
-	}
-	return false
 }

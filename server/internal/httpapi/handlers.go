@@ -105,7 +105,12 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/defects/:id/confirm", h.confirmDefect)
 	admin.POST("/defects/:id/close", h.closeDefect)
 	admin.GET("/devices", h.listDevices)
+	admin.GET("/devices/:id", h.getDevice)
 	admin.POST("/devices", h.registerDevice)
+	admin.POST("/devices/:id/update", h.updateDevice)
+	admin.POST("/devices/:id/delete", h.deleteDevice)
+	admin.POST("/devices/:id/enable", h.enableDevice)
+	admin.POST("/devices/:id/disable", h.disableDevice)
 	admin.POST("/devices/:id/revoke", h.revokeDevice)
 	admin.POST("/devices/:id/disable-lost", h.disableLostDevice)
 	admin.GET("/business-codes", h.listBusinessCodes)
@@ -287,7 +292,13 @@ func (h *Handler) generateBusinessCode(c *gin.Context) {
 		httperr.Respond(c, err)
 		return
 	}
-	code, err := h.businessCodes.GenerateDaily(c.Request.Context(), body.Code)
+	userID := auth.UserID(c)
+	user, err := h.users.Get(userID)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	code, err := h.businessCodes.GenerateDaily(c.Request.Context(), body.Code, user.OrgCode)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -516,22 +527,93 @@ func (h *Handler) listDevices(c *gin.Context) {
 	httperr.OK(c, result)
 }
 
+// getDevice 查询单个设备详情。
+func (h *Handler) getDevice(c *gin.Context) {
+	result, err := h.devices.Get(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
 // registerDevice 处理后台登记新设备。
 func (h *Handler) registerDevice(c *gin.Context) {
 	var body struct {
-		SerialNo string `json:"serial_no"`
-		Name     string `json:"name"`
+		SerialNo    string  `json:"serial_no"`
+		Name        string  `json:"name"`
+		OrgCode     string  `json:"org_code"`
+		Status      string  `json:"status"`
+		BoundUserID *uint64 `json:"bound_user_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	result, err := h.devices.Register(body.SerialNo, body.Name)
+	result, err := h.devices.Register(devices.RegisterInput{
+		SerialNo:    body.SerialNo,
+		Name:        body.Name,
+		OrgCode:     body.OrgCode,
+		Status:      body.Status,
+		BoundUserID: body.BoundUserID,
+	})
 	if err != nil {
 		httperr.Respond(c, err)
 		return
 	}
 	httperr.Created(c, result)
+}
+
+// updateDevice 更新设备信息。
+func (h *Handler) updateDevice(c *gin.Context) {
+	var body struct {
+		Name        string  `json:"name"`
+		OrgCode     string  `json:"org_code"`
+		Status      string  `json:"status"`
+		BoundUserID *uint64 `json:"bound_user_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.devices.Update(idParam(c, "id"), devices.UpdateInput{
+		Name:        body.Name,
+		OrgCode:     body.OrgCode,
+		Status:      body.Status,
+		BoundUserID: body.BoundUserID,
+	})
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// deleteDevice 删除设备。
+func (h *Handler) deleteDevice(c *gin.Context) {
+	if err := h.devices.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// enableDevice 启用设备。
+func (h *Handler) enableDevice(c *gin.Context) {
+	if err := h.devices.Enable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"status": devices.StatusActive})
+}
+
+// disableDevice 停用设备。
+func (h *Handler) disableDevice(c *gin.Context) {
+	if err := h.devices.Disable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"status": devices.StatusDisabled})
 }
 
 // revokeDevice 处理后台撤销设备。
