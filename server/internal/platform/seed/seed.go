@@ -14,11 +14,30 @@ import (
 // Run 在事务中写入默认角色、用户、班组和演示设备，重复执行不会产生重复数据。
 func Run(db *gorm.DB) error {
 	return db.Transaction(func(tx *gorm.DB) error {
-		roles := []database.Role{{Name: "系统管理员"}, {Name: "任务管理员"}, {Name: "班组长"}, {Name: "巡检员"}}
+		roles := []database.Role{
+			{Name: "系统管理员", Code: "admin", Description: "系统管理员", DataScope: database.DataScopeAll, Sort: 1, Status: "active"},
+			{Name: "任务管理员", Code: "task_manager", Description: "任务管理员", DataScope: database.DataScopeOrgAndSub, Sort: 2, Status: "active"},
+			{Name: "班组长", Code: "team_leader", Description: "班组长", DataScope: database.DataScopeOrgOnly, Sort: 3, Status: "active"},
+			{Name: "巡检员", Code: "inspector", Description: "巡检员", DataScope: database.DataScopeSelfOnly, Sort: 4, Status: "active"},
+		}
 		for _, role := range roles {
-			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "name"}}, DoNothing: true}).Create(&role).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "name"}}, DoUpdates: clause.AssignmentColumns([]string{"code", "description", "data_scope", "sort", "status"})}).Create(&role).Error; err != nil {
 				return err
 			}
+		}
+
+		var adminRole, managerRole, leaderRole, inspectorRole database.Role
+		if err := tx.Where("name = ?", "系统管理员").First(&adminRole).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("name = ?", "任务管理员").First(&managerRole).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("name = ?", "班组长").First(&leaderRole).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("name = ?", "巡检员").First(&inspectorRole).Error; err != nil {
+			return err
 		}
 
 		permissions := []database.Permission{
@@ -42,29 +61,15 @@ func Run(db *gorm.DB) error {
 		}
 		hashStr := string(defaultHash)
 		users := []database.User{
-			{Username: "admin", PasswordHash: hashStr, DisplayName: "系统管理员", Name: "系统管理员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
-			{Username: "manager", PasswordHash: hashStr, DisplayName: "任务管理员", Name: "任务管理员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
-			{Username: "leader", PasswordHash: hashStr, DisplayName: "巡检班组长", Name: "巡检班组长", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
-			{Username: "inspector", PasswordHash: hashStr, DisplayName: "巡检员", Name: "巡检员", Gender: "unknown", OrgCode: "ROOT", Status: "active"},
+			{Username: "admin", PasswordHash: hashStr, DisplayName: "系统管理员", Name: "系统管理员", Gender: "unknown", OrgCode: "ROOT", RoleID: adminRole.ID, Status: "active"},
+			{Username: "manager", PasswordHash: hashStr, DisplayName: "任务管理员", Name: "任务管理员", Gender: "unknown", OrgCode: "ROOT", RoleID: managerRole.ID, Status: "active"},
+			{Username: "leader", PasswordHash: hashStr, DisplayName: "巡检班组长", Name: "巡检班组长", Gender: "unknown", OrgCode: "ROOT", RoleID: leaderRole.ID, Status: "active"},
+			{Username: "inspector", PasswordHash: hashStr, DisplayName: "巡检员", Name: "巡检员", Gender: "unknown", OrgCode: "ROOT", RoleID: inspectorRole.ID, Status: "active"},
 		}
 		for _, user := range users {
-			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "username"}}, DoUpdates: clause.AssignmentColumns([]string{"password_hash", "display_name", "name", "gender", "org_code", "status"})}).Create(&user).Error; err != nil {
+			if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "username"}}, DoUpdates: clause.AssignmentColumns([]string{"password_hash", "display_name", "name", "gender", "org_code", "role_id", "status"})}).Create(&user).Error; err != nil {
 				return err
 			}
-		}
-
-		var adminRole, managerRole, leaderRole, inspectorRole database.Role
-		if err := tx.Where("name = ?", "系统管理员").First(&adminRole).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("name = ?", "任务管理员").First(&managerRole).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("name = ?", "班组长").First(&leaderRole).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("name = ?", "巡检员").First(&inspectorRole).Error; err != nil {
-			return err
 		}
 
 		roleByUser := map[string]uint64{"admin": adminRole.ID, "manager": managerRole.ID, "leader": leaderRole.ID, "inspector": inspectorRole.ID}

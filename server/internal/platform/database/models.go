@@ -18,6 +18,7 @@ type User struct {
 	BirthMonth        int    `gorm:"not null;default:0" json:"birth_month"`
 	IDCardNo          string `gorm:"size:32;index;not null;default:''" json:"id_card_no"`
 	OrgCode           string `gorm:"size:64;index;not null;default:''" json:"org_code"`
+	RoleID            uint64 `gorm:"index;not null;default:0" json:"role_id"`
 	Status            string `gorm:"size:32;index;not null" json:"status"`
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
@@ -29,8 +30,8 @@ type Organization struct {
 	Name       string `gorm:"size:128;not null" json:"name"`
 	ParentCode string `gorm:"size:64;index;not null;default:''" json:"parent_code"`
 	Status     string `gorm:"size:32;index;not null" json:"status"`
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	CreatedAt  time.Time `json:"CreatedAt"`
+	UpdatedAt  time.Time `json:"UpdatedAt"`
 }
 
 type BusinessCode struct {
@@ -46,16 +47,40 @@ type BusinessCode struct {
 	UpdatedAt    time.Time
 }
 
+// 数据范围常量
+const (
+	DataScopeAll       = "all"         // 全部数据
+	DataScopeOrgAndSub = "org_and_sub" // 本组织及下级
+	DataScopeOrgOnly   = "org_only"    // 仅本组织
+	DataScopeSelfOnly  = "self_only"   // 仅自己
+)
+
 type Role struct {
-	ID        uint64 `gorm:"primaryKey" json:"id"`
-	Name      string `gorm:"size:64;uniqueIndex;not null" json:"name"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          uint64 `gorm:"primaryKey" json:"id"`
+	Name        string `gorm:"size:64;uniqueIndex;not null" json:"name"`
+	Code        string `gorm:"size:64;uniqueIndex;not null;default:''" json:"code"`
+	Description string `gorm:"size:255;not null;default:''" json:"description"`
+	DataScope   string `gorm:"size:32;index;not null;default:'org_only'" json:"data_scope"` // 数据范围
+	Sort        int    `gorm:"not null;default:0" json:"sort"`
+	Status      string `gorm:"size:32;index;not null;default:'active'" json:"status"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Permission struct {
 	ID        uint64 `gorm:"primaryKey" json:"id"`
+	Pid       uint64 `gorm:"not null;default:0" json:"pid"`
+	Type      string `gorm:"size:16;not null;default:'menu'" json:"type"` // menu, action
+	Name      string `gorm:"size:64;not null" json:"name"`
 	Code      string `gorm:"size:128;uniqueIndex;not null" json:"code"`
+	Icon      string `gorm:"size:64;not null;default:''" json:"icon"`
+	Path      string `gorm:"size:255;not null;default:''" json:"path"`
+	Component string `gorm:"size:255;not null;default:''" json:"component"`
+	Sort      int    `gorm:"not null;default:0" json:"sort"`
+	Perms     string `gorm:"size:255;not null;default:''" json:"perms"`
+	Visible   bool   `gorm:"not null;default:true" json:"visible"`
+	IsCache   bool   `gorm:"not null;default:false" json:"is_cache"`
+	Status    string `gorm:"size:32;index;not null;default:'active'" json:"status"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
@@ -285,10 +310,10 @@ type WorkflowStep struct {
 	OptionsJSON *string `gorm:"type:json;comment:选择项配置JSON，仅select类型使用" json:"options_json"`
 
 	// 异常触发配置
-	AbnormalEnabled         bool `gorm:"not null;default:false;comment:是否启用异常触发" json:"abnormal_enabled"`
-	AbnormalRequirePhoto    bool `gorm:"not null;default:true;comment:异常时必须拍照" json:"abnormal_require_photo"`
-	AbnormalRequireVideo    bool `gorm:"not null;default:false;comment:异常时必须录像" json:"abnormal_require_video"`
-	AbnormalRequireNote     bool `gorm:"not null;default:true;comment:异常时必须填写备注" json:"abnormal_require_note"`
+	AbnormalEnabled          bool `gorm:"not null;default:false;comment:是否启用异常触发" json:"abnormal_enabled"`
+	AbnormalRequirePhoto     bool `gorm:"not null;default:true;comment:异常时必须拍照" json:"abnormal_require_photo"`
+	AbnormalRequireVideo     bool `gorm:"not null;default:false;comment:异常时必须录像" json:"abnormal_require_video"`
+	AbnormalRequireNote      bool `gorm:"not null;default:true;comment:异常时必须填写备注" json:"abnormal_require_note"`
 	AbnormalRequireSignature bool `gorm:"not null;default:false;comment:异常时必须签字确认" json:"abnormal_require_signature"`
 
 	CreatedAt time.Time

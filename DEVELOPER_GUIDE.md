@@ -43,6 +43,22 @@ server/internal/platform/database/migrate.go
 - 常用查询字段需要考虑索引，例如状态、截止时间、用户 ID、设备 ID。
 - 不要在模型文件中写业务判断，模型只描述数据结构。
 
+已有数据库拉取包含数据库字段变更的代码后，需要执行近期结构更新脚本。别人拉取本次提交后的操作顺序：
+
+```bash
+git pull
+mysql -u <user> -p <database> < server/scripts/update_recent_schema.sql
+# 然后重启后端 API
+```
+
+如果当前 shell 已在 `server/` 目录，脚本路径改为：
+
+```bash
+mysql -u <user> -p <database> < scripts/update_recent_schema.sql
+```
+
+执行前先备份数据库。脚本是幂等的，重复执行不会重复添加字段或索引。执行后重启后端 API。
+
 ### 2. 业务逻辑放置位置
 
 业务逻辑按领域放在：
@@ -70,6 +86,7 @@ server/internal/auth/auth.go             登录、JWT 和认证中间件
 - 数据库读写通过 GORM 在 Service 内完成。
 - 涉及任务状态的判断应调用 `server/internal/tasks/state_machine.go`。
 - 不要把状态流转规则散落在多个 Handler 中。
+- **数据范围过滤**：涉及列表查询的 Service，应提供 `*WithScope` 版本，支持通过 `datascope.ScopeInfo` 进行权限过滤。
 
 ### 3. 后端路由和接口放置位置
 
@@ -88,6 +105,93 @@ server/internal/httpapi/handlers.go
 - 路由注册写在 `Register()` 中。
 - 具体处理函数按业务含义命名，例如 `createTemplate`、`listTasks`、`submitNodeResult`。
 - Handler 中不要直接写复杂业务规则，应调用对应 Service。
+- **后台列表查询接口应使用数据范围过滤**：通过 `DataScope(c)` 获取当前用户范围信息，传入对应 Service 的 `*WithScope` 方法。
+
+### 3.5 数据范围中间件
+
+数据范围服务位于：
+
+```text
+server/internal/datascope/service.go
+```
+
+已集成到所有后台接口，通过 `DataScopeMiddleware` 自动注入。
+
+**数据范围定义**：
+
+| 范围级别 | 常量值 | 说明 |
+| --- | --- | --- |
+| 全部数据 | `database.DataScopeAll` | 不限制，可查看所有数据 |
+| 本组织及下级 | `database.DataScopeOrgAndSub` | 通过 BFS 遍历组织树，包含所有子组织 |
+| 仅本组织 | `database.DataScopeOrgOnly` | 仅匹配用户自身的 org_code |
+| 仅自己 | `database.DataScopeSelfOnly` | 仅匹配 created_by 或 executor_id = 用户 ID |
+
+**ScopeInfo 接口**：
+
+```go
+// 检查权限类型
+scope.IsAll() bool
+scope.IsSelfOnly() bool
+
+// 获取权限信息
+scope.GetUserID() uint64
+scope.GetOrgCodes() []string  // 包含所有可访问的组织编码
+
+// 组织访问检查
+scope.HasOrgAccess(orgCode string) bool
+```
+
+**在 Service 中应用过滤（示例）**：
+
+```go
+func (s *Service) ListWithScope(query ListQuery, scope interface{}) (ListResult, error) {
+    db := s.db.Model(&database.User{})
+
+    // 应用数据范围过滤
+    if scope != nil {
+        if scopeInfo, ok := scope.(interface{
+            IsAll() bool
+            IsSelfOnly() bool
+            GetUserID() uint64
+            GetOrgCodes() []string
+        }); ok {
+            if scopeInfo.IsAll() {
+                // 全部数据 - 不限制
+            } else if scopeInfo.IsSelfOnly() {
+                db = db.Where("id = ?", scopeInfo.GetUserID())
+            } else if len(scopeInfo.GetOrgCodes()) > 0 {
+                db = db.Where("org_code IN ?", scopeInfo.GetOrgCodes())
+            } else {
+                // 无权限 - 返回空结果
+                return ListResult{Items: []UserDTO{}, Total: 0}, nil
+            }
+        }
+    }
+
+    // ... 原有过滤逻辑
+}
+```
+
+**在 Handler 中调用**：
+
+```go
+func (h *Handler) listUsers(c *gin.Context) {
+    scope := DataScope(c)
+    result, err := h.users.ListWithScope(users.ListQuery{
+        Keyword:  c.Query("keyword"),
+        // ...
+    }, scope)
+    // ...
+}
+```
+
+**扩展到新业务模块的步骤**：
+
+1. 在 Service 中添加 `*WithScope` 方法
+2. 方法接收 `scope interface{}` 参数（使用接口避免循环依赖）
+3. 根据业务模型选择过滤字段：用户表用 `org_code`，任务表用 `executor_id` JOIN users
+4. Handler 层通过 `DataScope(c)` 获取范围信息传入
+5. 更新 initdb 和 migrate 脚本确保索引存在
 
 ### 4. 配置放置位置
 

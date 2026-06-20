@@ -35,6 +35,49 @@ func (s *Service) AdminList(status string, limit int) ([]database.InspectionTask
 	return tasks, query.Find(&tasks).Error
 }
 
+// AdminListWithScope 带数据范围过滤查询后台任务列表
+// scope: 当前用户的数据范围信息
+func (s *Service) AdminListWithScope(status string, limit int, scope interface{}) ([]database.InspectionTask, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	query := s.db.Model(&database.InspectionTask{}).Order("due_at asc, id asc").Limit(limit)
+
+	// 应用数据范围过滤
+	if scope != nil {
+		// 尝试转换为 ScopeInfo 接口
+		if scopeInfo, ok := scope.(interface {
+			IsAll() bool
+			IsSelfOnly() bool
+			GetUserID() uint64
+			GetOrgCodes() []string
+		}); ok {
+			if scopeInfo.IsAll() {
+				// 全部数据 - 不限制
+			} else if scopeInfo.IsSelfOnly() {
+				// 仅自己创建或分配给自己的任务
+				query = query.Where("executor_id = ? OR assignee_id = ?", scopeInfo.GetUserID(), scopeInfo.GetUserID())
+			} else if len(scopeInfo.GetOrgCodes()) > 0 {
+				// 组织范围 - 通过 JOIN users 表过滤
+				// 任务通过 executor_id 关联用户，用户通过 org_code 关联组织
+				query = query.Joins("LEFT JOIN users AS executor_users ON executor_users.id = inspection_tasks.executor_id").
+					Where("executor_users.org_code IN ?", scopeInfo.GetOrgCodes())
+			} else {
+				// 无权限 - 返回空结果
+				return []database.InspectionTask{}, nil
+			}
+		}
+	}
+
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	var tasks []database.InspectionTask
+	return tasks, query.Find(&tasks).Error
+}
+
 // GlassesList 查询指定眼镜用户可见的个人任务和班组任务。
 func (s *Service) GlassesList(userID uint64, teamIDs []uint64, limit int) ([]database.InspectionTask, error) {
 	if limit <= 0 || limit > 100 {

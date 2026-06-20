@@ -43,6 +43,7 @@ type CreateInput struct {
 	IDCardNo   string `json:"id_card_no"`
 	OrgCode    string `json:"org_code"`
 	Status     string `json:"status"`
+	RoleID     uint64 `json:"role_id"` // 角色ID
 }
 
 type UpdateInput struct {
@@ -53,6 +54,15 @@ type UpdateInput struct {
 	IDCardNo   string `json:"id_card_no"`
 	OrgCode    string `json:"org_code"`
 	Status     string `json:"status"`
+	RoleID     uint64 `json:"role_id"` // 角色ID
+}
+
+type ProfileInput struct {
+	Name       string `json:"name"`
+	Gender     string `json:"gender"`
+	BirthYear  int    `json:"birth_year"`
+	BirthMonth int    `json:"birth_month"`
+	IDCardNo   string `json:"id_card_no"`
 }
 
 type UserDTO struct {
@@ -65,12 +75,13 @@ type UserDTO struct {
 	BirthMonth        int       `json:"birth_month"`
 	IDCardNo          string    `json:"id_card_no"`
 	OrgCode           string    `json:"org_code"`
+	RoleID            uint64    `json:"role_id"`
 	Status            string    `json:"status"`
 	AvatarContentType string    `json:"avatar_content_type"`
 	AvatarSize        int64     `json:"avatar_size"`
 	HasAvatar         bool      `json:"has_avatar"`
-	CreatedAt         time.Time `json:"CreatedAt"`
-	UpdatedAt         time.Time `json:"UpdatedAt"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 type ListResult struct {
@@ -99,6 +110,63 @@ func (s *Service) List(query ListQuery) (ListResult, error) {
 	if status := strings.TrimSpace(query.Status); status != "" {
 		db = db.Where("status = ?", status)
 	}
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return ListResult{}, err
+	}
+	var models []database.User
+	if err := db.Select(userColumns()).Order("id desc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&models).Error; err != nil {
+		return ListResult{}, err
+	}
+	items := make([]UserDTO, 0, len(models))
+	for _, user := range models {
+		items = append(items, toDTO(user))
+	}
+	return ListResult{Items: items, Total: total}, nil
+}
+
+// ListWithScope 带数据范围过滤查询用户列表
+// scope: 当前用户的数据范围信息
+func (s *Service) ListWithScope(query ListQuery, scope any) (ListResult, error) {
+	page, pageSize := normalizePage(query.Page, query.PageSize)
+	db := s.db.Model(&database.User{})
+
+	// 应用数据范围过滤
+	if scope != nil {
+		// 尝试转换为 *datascope.ScopeInfo
+		if scopeInfo, ok := scope.(interface {
+			IsAll() bool
+			IsSelfOnly() bool
+			GetUserID() uint64
+			GetOrgCodes() []string
+		}); ok {
+			if scopeInfo.IsAll() {
+				// 全部数据 - 不限制
+			} else if scopeInfo.IsSelfOnly() {
+				// 仅自己
+				db = db.Where("id = ?", scopeInfo.GetUserID())
+			} else if len(scopeInfo.GetOrgCodes()) > 0 {
+				// 组织范围
+				db = db.Where("org_code IN ?", scopeInfo.GetOrgCodes())
+			} else {
+				// 无权限 - 返回空结果
+				return ListResult{Items: []UserDTO{}, Total: 0}, nil
+			}
+		}
+	}
+
+	// 原有过滤条件
+	if keyword := strings.TrimSpace(query.Keyword); keyword != "" {
+		like := "%" + keyword + "%"
+		db = db.Where("username LIKE ? OR name LIKE ? OR display_name LIKE ? OR id_card_no LIKE ?", like, like, like, like)
+	}
+	if orgCode := strings.TrimSpace(query.OrgCode); orgCode != "" {
+		db = db.Where("org_code = ?", orgCode)
+	}
+	if status := strings.TrimSpace(query.Status); status != "" {
+		db = db.Where("status = ?", status)
+	}
+
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
 		return ListResult{}, err
@@ -143,6 +211,7 @@ func (s *Service) Create(input CreateInput) (UserDTO, error) {
 		BirthMonth:   input.BirthMonth,
 		IDCardNo:     strings.TrimSpace(input.IDCardNo),
 		OrgCode:      strings.TrimSpace(input.OrgCode),
+		RoleID:       input.RoleID,
 		Status:       normalizeStatus(input.Status),
 	}
 	if err := s.validateUser(user, 0, true); err != nil {
@@ -167,7 +236,29 @@ func (s *Service) Update(id uint64, input UpdateInput) (UserDTO, error) {
 	user.BirthMonth = input.BirthMonth
 	user.IDCardNo = strings.TrimSpace(input.IDCardNo)
 	user.OrgCode = strings.TrimSpace(input.OrgCode)
+	user.RoleID = input.RoleID
 	user.Status = normalizeStatus(input.Status)
+	if err := s.validateUser(user, id, false); err != nil {
+		return UserDTO{}, err
+	}
+	if err := s.db.Save(&user).Error; err != nil {
+		return UserDTO{}, err
+	}
+	return toDTO(user), nil
+}
+
+// UpdateProfile 更新用户自己的个人资料，不修改组织、角色、状态等管理员字段。
+func (s *Service) UpdateProfile(id uint64, input ProfileInput) (UserDTO, error) {
+	var user database.User
+	if err := s.db.First(&user, id).Error; err != nil {
+		return UserDTO{}, notFound(err, "user not found")
+	}
+	user.Name = strings.TrimSpace(input.Name)
+	user.DisplayName = user.Name
+	user.Gender = normalizeGender(input.Gender)
+	user.BirthYear = input.BirthYear
+	user.BirthMonth = input.BirthMonth
+	user.IDCardNo = strings.TrimSpace(input.IDCardNo)
 	if err := s.validateUser(user, id, false); err != nil {
 		return UserDTO{}, err
 	}
@@ -276,7 +367,7 @@ func (s *Service) validateUser(user database.User, currentID uint64, requireUser
 }
 
 func userColumns() []string {
-	return []string{"id", "username", "display_name", "name", "gender", "birth_year", "birth_month", "id_card_no", "org_code", "status", "avatar_content_type", "avatar_size", "created_at", "updated_at"}
+	return []string{"id", "username", "display_name", "name", "gender", "birth_year", "birth_month", "id_card_no", "org_code", "role_id", "status", "avatar_content_type", "avatar_size", "created_at", "updated_at"}
 }
 
 func toDTO(user database.User) UserDTO {
@@ -290,6 +381,7 @@ func toDTO(user database.User) UserDTO {
 		BirthMonth:        user.BirthMonth,
 		IDCardNo:          user.IDCardNo,
 		OrgCode:           user.OrgCode,
+		RoleID:            user.RoleID,
 		Status:            user.Status,
 		AvatarContentType: user.AvatarContentType,
 		AvatarSize:        user.AvatarSize,

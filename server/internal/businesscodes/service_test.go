@@ -40,6 +40,8 @@ func setupTest(t *testing.T) *testEnv {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fixedNow := time.Date(2026, 6, 16, 10, 0, 0, 0, svc.location)
+	svc.SetNowForTest(func() time.Time { return fixedNow })
 	return &testEnv{db: db, redis: mr, svc: svc}
 }
 
@@ -341,7 +343,7 @@ func TestGenerateDailyOverflow(t *testing.T) {
 
 	ctx := context.Background()
 	// generate up to max (99)
-	for i := 0; i < 99; i++ {
+	for range 99 {
 		_, err := env.svc.GenerateDaily(ctx, "TK")
 		if err != nil {
 			t.Fatal(err)

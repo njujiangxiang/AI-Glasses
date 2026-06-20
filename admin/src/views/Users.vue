@@ -39,6 +39,9 @@
           <div style="font-size: 12px; color: #909399">{{ scope.row.org_code || '-' }}</div>
         </template>
       </el-table-column>
+      <el-table-column label="角色" width="120">
+        <template #default="scope">{{ getRoleName(scope.row.role_id) }}</template>
+      </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="scope">
           <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'">
@@ -86,6 +89,11 @@
           <el-option v-for="org in organizations" :key="org.code" :label="`${org.name}（${org.code}）`" :value="org.code" />
         </el-select>
       </el-form-item>
+      <el-form-item label="角色" prop="role_id">
+        <el-select v-model="form.role_id" placeholder="请选择角色">
+          <el-option v-for="role in roles" :key="role.id" :label="role.name" :value="role.id" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="form.status">
           <el-option label="启用" value="active" />
@@ -119,12 +127,14 @@ import { ElMessage } from 'element-plus'
 import { apiGet, apiPost, apiUpload } from '@/api/client'
 
 type Organization = { id: number; code: string; name: string }
-type User = { id: number; username: string; name: string; gender: string; birth_year: number; birth_month: number; id_card_no: string; org_code: string; status: string; has_avatar: boolean; UpdatedAt: string }
+type Role = { id: number; name: string }
+type User = { id: number; username: string; name: string; gender: string; birth_year: number; birth_month: number; id_card_no: string; org_code: string; status: string; has_avatar: boolean; role_id: number; UpdatedAt: string }
 type UserList = { items: User[]; total: number }
 
 const users = ref<User[]>([])
 const total = ref(0)
 const organizations = ref<Organization[]>([])
+const roles = ref<Role[]>([])
 // 头像 Blob URL 缓存
 const avatarBlobUrls = ref<Record<number, string>>({})
 
@@ -157,7 +167,7 @@ const editingAvatarBlobUrl = ref('')
 const pendingAvatarFile = ref<File | null>(null) // 新增用户时暂存的头像文件
 const formRef = ref<FormInstance>()
 const filters = reactive({ keyword: '', org_code: '', status: '', page: 1, page_size: 20 })
-const form = reactive({ username: '', name: '', gender: 'unknown', birth_year: 0, birth_month: 0, id_card_no: '', org_code: '', status: 'active' })
+const form = reactive({ username: '', name: '', gender: 'unknown', birth_year: 0, birth_month: 0, id_card_no: '', org_code: '', status: 'active', role_id: 0 })
 const rules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }]
@@ -175,12 +185,24 @@ async function load() {
 }
 // loadOrganizations 查询单位选项。
 async function loadOrganizations() { organizations.value = await apiGet<Organization[]>('/api/admin/organizations') }
+
+// loadRoles 查询角色列表
+async function loadRoles() {
+  const res = await apiGet<Role[]>('/api/admin/roles/all')
+  roles.value = res
+}
+
+// getRoleName 获取角色名称
+function getRoleName(roleId: string | number) {
+  const role = roles.value.find(r => r.id === Number(roleId))
+  return role?.name || '-'
+}
 // openCreate 打开新增用户弹窗。
 function openCreate() {
   editingId.value = null
   pendingAvatarFile.value = null
   editingAvatarBlobUrl.value = ''
-  Object.assign(form, { username: '', name: '', gender: 'unknown', birth_year: 0, birth_month: 0, id_card_no: '', org_code: '', status: 'active' })
+  Object.assign(form, { username: '', name: '', gender: 'unknown', birth_year: 0, birth_month: 0, id_card_no: '', org_code: '', status: 'active', role_id: 0 })
   dialogVisible.value = true
 }
 
@@ -203,7 +225,7 @@ function closeDialog() {
 // openEdit 打开编辑用户弹窗。
 async function openEdit(row: User) {
   editingId.value = row.id
-  Object.assign(form, { username: row.username, name: row.name, gender: row.gender, birth_year: row.birth_year, birth_month: row.birth_month, id_card_no: row.id_card_no, org_code: row.org_code, status: row.status })
+  Object.assign(form, { username: row.username, name: row.name, gender: row.gender, birth_year: row.birth_year, birth_month: row.birth_month, id_card_no: row.id_card_no, org_code: row.org_code, status: row.status, role_id: row.role_id || 0 })
   // 使用 Blob URL 方式加载编辑用户的头像
   editingAvatarBlobUrl.value = ''
   if (row.has_avatar) {
@@ -285,7 +307,7 @@ async function disable(id: number) {
 function genderLabel(gender: string) { return gender === 'male' ? '男' : gender === 'female' ? '女' : '未知' }
 function birthText(row: User) { return row.birth_year ? `${row.birth_year}-${String(row.birth_month).padStart(2, '0')}` : '-' }
 function maskID(value: string) { return value ? `${value.slice(0, 6)}********${value.slice(-4)}` : '-' }
-onMounted(async () => { await Promise.all([loadOrganizations(), load()]) })
+onMounted(async () => { await Promise.all([loadOrganizations(), loadRoles(), load()]) })
 </script>
 
 <style scoped>

@@ -12,8 +12,15 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS roles (
   id BIGINT UNSIGNED AUTO_INCREMENT COMMENT '角色ID，系统内部主键' PRIMARY KEY,
   name VARCHAR(64) NOT NULL UNIQUE COMMENT '角色名称，例如系统管理员、任务管理员、班组长、巡检员',
+  code VARCHAR(64) NOT NULL DEFAULT '' UNIQUE COMMENT '角色编码，例如super_admin、user、inspector',
+  description VARCHAR(255) NOT NULL DEFAULT '' COMMENT '角色说明',
+  data_scope VARCHAR(32) NOT NULL DEFAULT 'org_only' COMMENT '数据范围：all全部，org_and_sub本组织及下级，org_only本组织，self_only仅自己',
+  sort INT NOT NULL DEFAULT 0 COMMENT '排序值，数值越小越靠前',
+  status VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT '角色状态：active启用，disabled停用',
   created_at DATETIME(3) NULL COMMENT '创建时间',
-  updated_at DATETIME(3) NULL COMMENT '更新时间'
+  updated_at DATETIME(3) NULL COMMENT '更新时间',
+  INDEX idx_roles_data_scope (data_scope),
+  INDEX idx_roles_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表：定义系统内可分配给用户的角色';
 
 CREATE TABLE IF NOT EXISTS permissions (

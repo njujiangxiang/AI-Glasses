@@ -85,23 +85,42 @@ func (s *Service) Tree() ([]TreeNode, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodes := make(map[string]*TreeNode, len(orgs))
-	for _, org := range orgs {
-		item := TreeNode{Organization: org}
-		nodes[org.Code] = &item
+	type node struct {
+		org      database.Organization
+		children []*node
 	}
-	roots := make([]TreeNode, 0)
+	nodes := make(map[string]*node, len(orgs))
 	for _, org := range orgs {
-		node := nodes[org.Code]
-		if org.ParentCode != "" {
-			if parent := nodes[org.ParentCode]; parent != nil {
-				parent.Children = append(parent.Children, *node)
-				continue
-			}
+		nodes[org.Code] = &node{org: org}
+	}
+	roots := make([]*node, 0)
+	for _, org := range orgs {
+		current := nodes[org.Code]
+		if org.ParentCode == "" {
+			roots = append(roots, current)
+			continue
 		}
-		roots = append(roots, *node)
+		parent := nodes[org.ParentCode]
+		if parent == nil || parent == current {
+			// 历史数据可能存在缺失父级或自引用父级。不要静默丢弃，作为顶级节点展示出来。
+			roots = append(roots, current)
+			continue
+		}
+		parent.children = append(parent.children, current)
 	}
-	return roots, nil
+	var convert func(*node) TreeNode
+	convert = func(n *node) TreeNode {
+		item := TreeNode{Organization: n.org, Children: make([]TreeNode, 0, len(n.children))}
+		for _, child := range n.children {
+			item.Children = append(item.Children, convert(child))
+		}
+		return item
+	}
+	result := make([]TreeNode, 0, len(roots))
+	for _, root := range roots {
+		result = append(result, convert(root))
+	}
+	return result, nil
 }
 
 // Enable 启用单位组织。
@@ -188,6 +207,42 @@ func (s *Service) ensureParent(code, parentCode string) error {
 		return httperr.New(httperr.ValidationFailed, "organization tree is too deep")
 	}
 	return nil
+}
+
+// GetSubOrgCodes 获取指定组织的所有子组织编码（包含自身），使用 BFS 遍历
+func (s *Service) GetSubOrgCodes(orgCode string) ([]string, error) {
+	if orgCode == "" {
+		return []string{}, nil
+	}
+
+	var allOrgs []database.Organization
+	if err := s.db.Select("code, parent_code").Find(&allOrgs).Error; err != nil {
+		return nil, err
+	}
+
+	// 构建父->子映射
+	children := make(map[string][]string)
+	for _, org := range allOrgs {
+		if org.ParentCode != "" {
+			children[org.ParentCode] = append(children[org.ParentCode], org.Code)
+		}
+	}
+
+	// BFS 收集所有子组织
+	result := []string{orgCode}
+	queue := []string{orgCode}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		for _, child := range children[current] {
+			result = append(result, child)
+			queue = append(queue, child)
+		}
+	}
+
+	return result, nil
 }
 
 func normalizeStatus(status string) string {

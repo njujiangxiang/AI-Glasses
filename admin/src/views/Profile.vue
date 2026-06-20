@@ -58,11 +58,12 @@
 import { onMounted, reactive, ref, computed } from 'vue'
 import type { FormInstance, FormRules, UploadRequestOptions } from 'element-plus'
 import { ElMessage } from 'element-plus'
-import { apiGet, apiPost, apiUpload, getCurrentUser } from '@/api/client'
+import { apiGet, apiPost, apiUpload, getCurrentUser, setCurrentUser } from '@/api/client'
 
-type User = { id: number; username: string; name: string; gender: string; birth_year: number; birth_month: number; id_card_no: string; org_code: string; has_avatar: boolean; updated_at: string }
+type User = { id: number; username: string; display_name: string; name: string; gender: string; birth_year: number; birth_month: number; id_card_no: string; org_code: string; org_name?: string; company_name?: string; role_id: number; avatar_size: number; has_avatar: boolean; updated_at: string }
+type CurrentUserResponse = { user: User; org_name: string; company_name: string }
 
-const user = ref<User>({ id: 0, username: '', name: '', gender: 'unknown', birth_year: 0, birth_month: 0, id_card_no: '', org_code: '', has_avatar: false, updated_at: '' })
+const user = ref<User>({ id: 0, username: '', display_name: '', name: '', gender: 'unknown', birth_year: 0, birth_month: 0, id_card_no: '', org_code: '', role_id: 0, avatar_size: 0, has_avatar: false, updated_at: '' })
 const orgName = ref('')
 const formRef = ref<FormInstance>()
 const saving = ref(false)
@@ -95,24 +96,31 @@ const rules: FormRules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }]
 }
 
-async function load() {
-  const current = getCurrentUser()
-  if (!current) return
-  const data = await apiGet<User>(`/api/admin/users/${current.id}`)
-  user.value = data
+function applyCurrentUser(current: User) {
+  user.value = current
+  setCurrentUser(current)
   Object.assign(form, {
-    username: data.username,
-    name: data.name,
-    gender: data.gender,
-    birth_year: data.birth_year,
-    birth_month: data.birth_month,
-    id_card_no: data.id_card_no
+    username: current.username,
+    name: current.name,
+    gender: current.gender,
+    birth_year: current.birth_year,
+    birth_month: current.birth_month,
+    id_card_no: current.id_card_no
   })
-  // 加载单位名称
-  const orgs = await apiGet<{ code: string; name: string }[]>('/api/admin/organizations')
-  const org = orgs.find(o => o.code === data.org_code)
-  orgName.value = org ? `${org.name}（${org.code}）` : data.org_code
-  // 加载头像
+  orgName.value = current.company_name ? `${current.company_name}（${current.org_code}）` : current.org_code
+}
+
+async function load() {
+  try {
+    const data = await apiGet<CurrentUserResponse>('/api/admin/users/me')
+    applyCurrentUser({ ...data.user, org_name: data.org_name || '', company_name: data.company_name || data.org_name || '' })
+  } catch (e) {
+    const cached = getCurrentUser()
+    if (!cached?.id) throw e
+    console.warn('加载当前用户接口失败，降级读取用户详情:', e)
+    const data = await apiGet<User>(`/api/admin/users/${cached.id}`)
+    applyCurrentUser({ ...data, org_name: cached.org_name || '', company_name: cached.company_name || cached.org_name || '' })
+  }
   await loadCurrentUserAvatar()
 }
 
@@ -120,9 +128,10 @@ async function submit() {
   await formRef.value?.validate()
   saving.value = true
   try {
-    await apiPost(`/api/admin/users/${user.value.id}/update`, form)
+    const data = await apiPost<CurrentUserResponse>('/api/admin/users/me/update', form)
+    applyCurrentUser({ ...data.user, org_name: data.org_name || '', company_name: data.company_name || data.org_name || '' })
     ElMessage.success('个人信息已更新')
-    await load()
+    await loadCurrentUserAvatar()
   } finally {
     saving.value = false
   }
@@ -136,13 +145,6 @@ async function uploadAvatar(options: UploadRequestOptions) {
   // 清除旧的 blob URL 并重新加载
   if (avatarBlobUrl.value) URL.revokeObjectURL(avatarBlobUrl.value)
   await load()
-  // 更新 localStorage 中的用户头像状态，供右上角显示
-  const stored = localStorage.getItem('admin_user')
-  if (stored) {
-    const userData = JSON.parse(stored)
-    userData.has_avatar = true
-    localStorage.setItem('admin_user', JSON.stringify(userData))
-  }
 }
 
 onMounted(load)
