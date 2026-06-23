@@ -46,7 +46,7 @@ start_frontend() {
     echo -e "${YELLOW}[前端]${NC} node_modules 不存在，正在安装依赖..."
     npm install
   fi
-  node node_modules/.bin/vite --host 0.0.0.0 --port "$FRONTEND_PORT" 2>&1 | sed "s/^/$(printf "${GREEN}[前端]${NC} ")/" &
+  npx vite --host 0.0.0.0 --port "$FRONTEND_PORT" 2>&1 | sed "s/^/$(printf "${GREEN}[前端]${NC} ")/" &
   PIDS+=($!)
   cd "$ROOT_DIR"
 }

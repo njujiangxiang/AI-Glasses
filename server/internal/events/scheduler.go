@@ -37,6 +37,53 @@ func (s *Scheduler) Tick(now time.Time) error {
 	return nil
 }
 
+// GenerateForPlan 为指定计划生成一次任务（无论计划是否启用），并返回是否成功生成。
+// 该接口用于"立即生成"按钮，确保点击后一定能为该计划创建任务。
+func (s *Scheduler) GenerateForPlan(planID uint64, now time.Time) (bool, error) {
+	var plan database.TaskPlan
+	if err := s.db.First(&plan, planID).Error; err != nil {
+		return false, err
+	}
+	nowUTC := now.UTC()
+	// 如果计划开始时间在未来，则将其调整到当前时间以确保能够生成。
+	if plan.StartAt.UTC().After(nowUTC) {
+		plan.StartAt = nowUTC.Add(-time.Minute)
+	}
+	// 如果计划没有启用，临时生成一次任务也不修改数据库中的 enabled 状态。
+	loc, err := time.LoadLocation(plan.Timezone)
+	if err != nil {
+		return false, err
+	}
+	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	schedule, err := parser.Parse(plan.CronExpr)
+	if err != nil {
+		return false, err
+	}
+	windowStart := nowUTC.Add(-s.cfg.SchedulerLookback)
+	candidate := schedule.Next(windowStart.In(loc)).UTC()
+	generated := false
+	for !candidate.After(nowUTC) {
+		if candidate.Before(plan.StartAt.UTC()) {
+			candidate = schedule.Next(candidate.In(loc)).UTC()
+			continue
+		}
+		if err := s.insertTask(plan, candidate); err != nil {
+			return generated, err
+		}
+		generated = true
+		candidate = schedule.Next(candidate.In(loc)).UTC()
+	}
+	// 如果窗口内仍未生成（例如 cron 仅在未来触发），按下次 cron 时间强制生成一次。
+	if !generated {
+		nextTime := schedule.Next(nowUTC.In(loc)).UTC()
+		if err := s.insertTask(plan, nextTime); err != nil {
+			return false, err
+		}
+		generated = true
+	}
+	return generated, nil
+}
+
 // generateForPlan 根据单个计划的 cron 和时区计算本次应生成的任务时间点。
 func (s *Scheduler) generateForPlan(plan database.TaskPlan, now time.Time) error {
 	loc, err := time.LoadLocation(plan.Timezone)
@@ -66,15 +113,17 @@ func (s *Scheduler) generateForPlan(plan database.TaskPlan, now time.Time) error
 // insertTask 插入巡检任务、任务节点和 outbox 事件，依赖唯一索引保证幂等。
 func (s *Scheduler) insertTask(plan database.TaskPlan, scheduledAt time.Time) error {
 	dueAt := scheduledAt.Add(time.Duration(plan.DueDurationMinutes) * time.Minute)
+	planID := plan.ID
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		task := database.InspectionTask{
-			PlanID:        plan.ID,
+			PlanID:        &planID,
 			TemplateID:    plan.TemplateID,
-			ScheduledAt:   scheduledAt,
+			ScheduledAt:   &scheduledAt,
 			DueAt:         dueAt,
 			Status:        initialStatus(plan.AssigneeType),
 			AssigneeType:  plan.AssigneeType,
 			AssigneeID:    plan.AssigneeID,
+			TaskName:      plan.Name,
 			PointName:     plan.PointName,
 			EquipmentName: plan.EquipmentName,
 		}

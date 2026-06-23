@@ -2,6 +2,7 @@ package httperr
 
 import (
 	"errors"
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,7 @@ type response struct {
 func Respond(c *gin.Context, err error) {
 	var apiErr APIError
 	if !errors.As(err, &apiErr) {
+		log.Printf("[HTTP ERROR] %s: %v", c.Request.URL.Path, err)
 		apiErr = New(InternalError, "internal error")
 	}
 	c.JSON(apiErr.HTTPStatus, response{Error: apiErr})

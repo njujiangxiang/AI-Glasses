@@ -44,8 +44,7 @@
         </div>
         <el-dropdown trigger="click" @command="handleUserCommand">
           <span class="user-dropdown">
-            <el-avatar v-if="currentUserAvatarBlobUrl" :size="32" :src="currentUserAvatarBlobUrl" />
-            <el-avatar v-else :size="32">{{ currentUserInitial }}</el-avatar>
+            <el-avatar :size="32" :src="currentUserAvatarUrl">{{ currentUserInitial }}</el-avatar>
             <span class="user-meta">
               <span class="user-name">{{ currentUserName }}</span>
               <span class="user-role">{{ currentUserRole }}</span>
@@ -77,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -90,17 +89,16 @@ import {
   Expand,
   Fold,
   Key,
+  Location,
+  MapLocation,
   Monitor,
   OfficeBuilding,
   Operation,
   Setting,
   Tickets,
-  User,
-  UserFilled,
-  Menu
+  User
 } from '@element-plus/icons-vue'
-import { clearToken, getCurrentUser, apiGet } from '@/api/client'
-import { getIconComponent } from '@/iconCatalog'
+import { clearToken, getCurrentUser } from '@/api/client'
 
 // route 和 router 用于同步当前路由、菜单选中态和多 Tab 导航。
 const route = useRoute()
@@ -112,204 +110,53 @@ const activeTab = ref('')
 // tabs 保存用户已经打开的业务页面，工作台固定在首位且不可关闭。
 const tabs = ref<{ path: string; title: string }[]>([{ path: '/workbench', title: '工作台' }])
 type MenuItem = { path: string; title: string; icon: unknown; children?: MenuItem[] }
-// menuItems 是侧栏菜单和可打开 Tab 的唯一来源 - 从后端动态加载
-const menuItems = ref<MenuItem[]>([])
-
-// loadMenus 从后端加载当前用户的权限菜单
-async function loadMenus() {
-  try {
-    console.log('开始加载用户菜单...')
-    const menus = await apiGet<any[]>('/api/admin/menus/mine')
-    console.log('从后端获取的菜单:', menus)
-    // 如果后端没有返回菜单（空表），使用默认菜单
-    if (!menus || menus.length === 0) {
-      console.warn('后端未返回菜单，使用默认菜单')
-      menuItems.value = [
-        { path: '/workbench', title: '工作台', icon: DataAnalysis },
-        { path: '/templates', title: '巡检模板', icon: Document },
-        { path: '/workflows', title: '工作流管理', icon: Operation },
-        { path: '/plans', title: '任务计划', icon: Calendar },
-        { path: '/tasks', title: '任务管理', icon: Tickets },
-        { path: '/tasksheets', title: '作业任务单', icon: Document },
-        { path: '/defects', title: '缺陷管理', icon: Bell },
-        {
-          path: '/master-data',
-          title: '台账和主数据管理',
-          icon: Collection,
-          children: [
-            { path: '/devices', title: '设备管理', icon: Monitor }
-          ]
-        },
-        {
-          path: '/system',
-          title: '系统管理',
-          icon: Setting,
-          children: [
-            { path: '/organizations', title: '组织管理', icon: OfficeBuilding },
-            { path: '/users', title: '用户管理', icon: User },
-            { path: '/roles', title: '角色管理', icon: UserFilled },
-            { path: '/menus', title: '菜单权限', icon: Menu },
-            { path: '/business-codes', title: '业务编码配置', icon: Key },
-            { path: '/monitoring/logs', title: '实时监控', icon: Monitor }
-          ]
-        }
-      ]
-      return
-    }
-    // 转换后端菜单格式为前端格式
-    menuItems.value = menus.map(menu => transformMenu(menu))
-    console.log('菜单加载完成，共加载了', menuItems.value.length, '个顶级菜单')
-  } catch (e) {
-    console.warn('加载菜单失败，使用默认菜单:', e)
-    // 加载失败时使用默认菜单
-    menuItems.value = [
-      { path: '/workbench', title: '工作台', icon: DataAnalysis },
+// menuItems 是侧栏菜单和可打开 Tab 的唯一来源。
+const menuItems: MenuItem[] = [
+  { path: '/workbench', title: '工作台', icon: DataAnalysis },
+  {
+    path: '/inspection',
+    title: '巡检管理',
+    icon: Tickets,
+    children: [
+      { path: '/nodes', title: '节点管理', icon: Location },
+      { path: '/inspection-points', title: '巡检点位', icon: MapLocation },
       { path: '/templates', title: '巡检模板', icon: Document },
-      { path: '/workflows', title: '工作流管理', icon: Operation },
       { path: '/plans', title: '任务计划', icon: Calendar },
-      { path: '/tasks', title: '任务管理', icon: Tickets },
-      { path: '/tasksheets', title: '作业任务单', icon: Document },
-      { path: '/defects', title: '缺陷管理', icon: Bell },
-      {
-        path: '/master-data',
-        title: '台账和主数据管理',
-        icon: Collection,
-        children: [
-          { path: '/devices', title: '设备管理', icon: Monitor }
-        ]
-      },
-      {
-        path: '/system',
-        title: '系统管理',
-        icon: Setting,
-        children: [
-          { path: '/organizations', title: '组织管理', icon: OfficeBuilding },
-          { path: '/users', title: '用户管理', icon: User },
-          { path: '/roles', title: '角色管理', icon: UserFilled },
-          { path: '/menus', title: '菜单权限', icon: Menu },
-          { path: '/business-codes', title: '业务编码配置', icon: Key }
-        ]
-      }
+      { path: '/tasks', title: '巡检任务', icon: Monitor },
+      { path: '/defects', title: '缺陷管理', icon: Bell }
+    ]
+  },
+  {
+    path: '/master-data',
+    title: '台账和主数据管理',
+    icon: Collection,
+    children: [
+      { path: '/devices', title: '设备管理', icon: Monitor }
+    ]
+  },
+  {
+    path: '/system',
+    title: '系统管理',
+    icon: Setting,
+    children: [
+      { path: '/organizations', title: '组织管理', icon: OfficeBuilding },
+      { path: '/users', title: '用户管理', icon: User },
+      { path: '/business-codes', title: '业务编码配置', icon: Key }
     ]
   }
-}
-
-function transformMenu(menu: any): MenuItem {
-  const path = menu.path || `/${menu.id}`
-  const item: MenuItem = {
-    path,
-    title: menu.name,
-    icon: path === '/roles' ? UserFilled : path === '/menus' ? Menu : getIconComponent(menu.icon)
-  }
-  if (menu.children && menu.children.length > 0) {
-    // 过滤掉按钮级权限，只保留目录和菜单
-    const validChildren = menu.children.filter((c: any) => c.type !== 'A')
-    if (validChildren.length > 0) {
-      item.children = validChildren.map(transformMenu)
-    }
-  }
-  return item
-}
-const leafMenuItems = computed(() => menuItems.value.flatMap((item) => item.children || [item]))
-const currentUser = ref(getCurrentUser())
-
-function refreshCurrentUser() {
-  currentUser.value = getCurrentUser()
-}
-
-// 无论是否在布局中，都监听用户更新事件（登录成功后通知壳层刷新）
-onMounted(() => window.addEventListener('admin-user-updated', refreshCurrentUser))
-onUnmounted(() => window.removeEventListener('admin-user-updated', refreshCurrentUser))
-
-// 路由变化时同步刷新 currentUser，确保头像加载时数据已就绪
-watch(
-  () => route.fullPath,
-  () => {
-    const cached = getCurrentUser()
-    if (cached && (!currentUser.value || currentUser.value.id !== cached.id)) {
-      currentUser.value = cached
-    }
-  }
-)
-
-function shouldLoadWorkspaceData() {
-  return route.matched.length > 0 && !route.meta.public && !!localStorage.getItem('admin_token')
-}
-
-// 监听路由变化 - 每次进入非公开页面时检查并加载菜单
-watch(
-  () => route.fullPath,
-  () => {
-    if (shouldLoadWorkspaceData() && menuItems.value.length === 0) {
-      loadMenus()
-    }
-  },
-  { immediate: true }
-)
-
-// 监听令牌变化，登录成功后重新加载菜单
-watch(
-  () => localStorage.getItem('admin_token'),
-  () => {
-    if (shouldLoadWorkspaceData()) {
-      loadMenus()
-    }
-  }
-)
-
-// 页面加载时获取菜单
-onMounted(() => {
-  if (shouldLoadWorkspaceData()) {
-    loadMenus()
-  }
-})
+]
+const leafMenuItems = computed(() => menuItems.flatMap((item) => item.children || [item]))
+const currentUser = computed(() => getCurrentUser())
 const currentUserName = computed(() => currentUser.value?.name || currentUser.value?.display_name || currentUser.value?.username || 'admin')
-const currentUserRole = computed(() => currentUser.value?.org_name || currentUser.value?.company_name || currentUser.value?.org_code || '未设置单位')
-const currentUserInitial = computed(() => (currentUserName.value || 'A').slice(0, 1).toUpperCase())
+const currentUserRole = computed(() => currentUser.value?.company_name || '未设置公司')
+const currentUserInitial = computed(() => currentUserName.value.slice(0, 1))
+const currentUserAvatarUrl = computed(() => currentUser.value?.avatar_size ? `/api/admin/users/${currentUser.value.id}/avatar` : '')
 const activeMenu = computed(() => route.path.startsWith('/tasksheets') ? '/tasksheets' : route.path)
-// 右上角用户头像 - 与个人中心保持一致，支持显示上传的头像图片
-const currentUserAvatarBlobUrl = ref('')
-
-async function loadCurrentUserAvatar() {
-  // 检查是否在工作区（有 token 且非公开页面）
-  const token = localStorage.getItem('admin_token')
-  if (!token || !currentUser.value?.id) {
-    currentUserAvatarBlobUrl.value = ''
-    return
-  }
-  // 检查路由是否匹配（排除公开页面）
-  if (route.meta.public) {
-    currentUserAvatarBlobUrl.value = ''
-    return
-  }
-  try {
-    const res = await fetch(`/api/admin/users/${currentUser.value.id}/avatar`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {}
-    })
-    if (res.ok) {
-      const blob = await res.blob()
-      // 确保返回的是有效图片（不是空响应）
-      if (blob.size > 0) {
-        currentUserAvatarBlobUrl.value = URL.createObjectURL(blob)
-      } else {
-        currentUserAvatarBlobUrl.value = ''
-      }
-    } else {
-      currentUserAvatarBlobUrl.value = ''
-    }
-  } catch (e) {
-    console.warn('Failed to load header avatar:', e)
-    currentUserAvatarBlobUrl.value = ''
-  }
-}
-
-// 用户变化时重新加载头像
-watch(currentUser, () => loadCurrentUserAvatar(), { immediate: true })
 
 // currentTitle 根据路由元信息生成面包屑标题。
 const currentTitle = computed(() => String(route.meta.title || '工作台'))
 
-// 监听路由变化，进入业务页面时自动创建或激活对应 Tab，并刷新头像
+// 监听路由变化，进入业务页面时自动创建或激活对应 Tab。
 watch(
   () => route.fullPath,
   () => {
@@ -320,8 +167,6 @@ watch(
     if (!tabs.value.some((item) => item.path === tab.path)) {
       tabs.value.push(tab)
     }
-    // 路由变化时刷新头像（从个人中心返回后更新）
-    loadCurrentUserAvatar()
   },
   { immediate: true, flush: 'post' }
 )
@@ -358,25 +203,12 @@ function removeTab(name: string | number) {
 // handleUserCommand 处理右上角用户菜单命令，包括退出登录。
 async function handleUserCommand(command: string) {
   if (command === 'logout') {
-    await ElMessageBox.confirm('确定退出当前账号吗？', '提示', {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消'
-    })
+    await ElMessageBox.confirm('确定退出当前账号吗？', '提示', { type: 'warning' })
     clearToken()
     await router.push('/login')
     ElMessage.success('已退出登录')
     return
   }
-  if (command === 'profile') {
-    // 打开个人中心Tab
-    const tabPath = '/profile'
-    if (!tabs.value.some(tab => tab.path === tabPath)) {
-      tabs.value.push({ path: tabPath, title: '个人中心' })
-    }
-    activeTab.value = tabPath
-    await router.push(tabPath)
-    return
-  }
+  ElMessage.info('功能建设中')
 }
 </script>

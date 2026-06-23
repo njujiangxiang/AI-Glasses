@@ -3,6 +3,7 @@
 package tasks
 
 import (
+	"strings"
 	"time"
 
 	"aiglasses/server/internal/platform/database"
@@ -11,6 +12,42 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+const (
+	AssigneeUser = "user"
+	AssigneeTeam = "team"
+)
+
+type AdminCreateInput struct {
+	TemplateID    uint64     `json:"template_id"`
+	TaskName      string     `json:"task_name"`
+	PointName     string     `json:"point_name"`
+	EquipmentName string     `json:"equipment_name"`
+	InspectArea   string     `json:"inspect_area"`
+	AssigneeType  string     `json:"assignee_type"`
+	AssigneeID    uint64     `json:"assignee_id"`
+	DueAt         time.Time  `json:"due_at"`
+	GlassesSN     string     `json:"glasses_sn"`
+	AssignUser    string     `json:"assign_user"`
+}
+
+type AdminListQuery struct {
+	Keyword    string
+	Status     string
+	TemplateID uint64
+	Page       int
+	PageSize   int
+}
+
+type TaskListItem struct {
+	database.InspectionTask
+	TemplateName string `json:"template_name"`
+}
+
+type AdminListResult struct {
+	Items []TaskListItem `json:"items"`
+	Total int64          `json:"total"`
+}
 
 type Service struct {
 	db    *gorm.DB
@@ -22,60 +59,147 @@ func NewService(db *gorm.DB, redisClient *redis.Client) *Service {
 	return &Service{db: db, redis: redisClient}
 }
 
-// AdminList 按状态查询后台任务列表，并限制最大返回数量。
-func (s *Service) AdminList(status string, limit int) ([]database.InspectionTask, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
+// AdminCreate 后台手动创建巡检任务，不依赖计划。
+func (s *Service) AdminCreate(input AdminCreateInput) (database.InspectionTask, error) {
+	if input.TemplateID == 0 {
+		return database.InspectionTask{}, httperr.New(httperr.TaskStateConflict, "template_id is required")
 	}
-	query := s.db.Order("due_at asc, id asc").Limit(limit)
-	if status != "" {
-		query = query.Where("status = ?", status)
+	if input.TaskName == "" {
+		return database.InspectionTask{}, httperr.New(httperr.TaskStateConflict, "task_name is required")
 	}
-	var tasks []database.InspectionTask
-	return tasks, query.Find(&tasks).Error
+	if input.AssigneeType != AssigneeUser && input.AssigneeType != AssigneeTeam {
+		return database.InspectionTask{}, httperr.New(httperr.TaskStateConflict, "invalid assignee type")
+	}
+	if input.AssigneeID == 0 {
+		return database.InspectionTask{}, httperr.New(httperr.TaskStateConflict, "assignee_id is required")
+	}
+	if input.DueAt.IsZero() {
+		return database.InspectionTask{}, httperr.New(httperr.TaskStateConflict, "due_at is required")
+	}
+
+	// 验证模板存在
+	var template database.InspectionTemplate
+	if err := s.db.First(&template, input.TemplateID).Error; err != nil {
+		return database.InspectionTask{}, httperr.New(httperr.ResourceNotFound, "template not found")
+	}
+
+	// 查询模板节点
+	var templateNodes []database.InspectionTemplateNode
+	if err := s.db.Where("template_id = ?", input.TemplateID).Order("sort_order asc").Find(&templateNodes).Error; err != nil {
+		return database.InspectionTask{}, err
+	}
+	if len(templateNodes) == 0 {
+		return database.InspectionTask{}, httperr.New(httperr.TaskStateConflict, "template has no nodes")
+	}
+
+	task := database.InspectionTask{
+		PlanID:        nil, // 手动创建，无计划
+		TemplateID:    input.TemplateID,
+		ScheduledAt:   nil, // 手动创建，无计划时间
+		DueAt:         input.DueAt.UTC(),
+		Status:        StatusPending,
+		AssigneeType:  input.AssigneeType,
+		AssigneeID:    input.AssigneeID,
+		PointName:     input.PointName,
+		EquipmentName: input.EquipmentName,
+		TaskName:      input.TaskName,
+		InspectArea:   input.InspectArea,
+		GlassesSN:     input.GlassesSN,
+		AssignUser:    input.AssignUser,
+		AssignTime:    timePtr(time.Now().UTC()),
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&task).Error; err != nil {
+			return err
+		}
+		// 从模板复制节点
+		for _, tn := range templateNodes {
+			taskNode := database.InspectionTaskNode{
+				TaskID:         task.ID,
+				TemplateNodeID: tn.ID,
+				SortOrder:      tn.SortOrder,
+				Name:           tn.Name,
+				NodeType:       tn.NodeType,
+				MinPhotos:      tn.MinPhotos,
+				RequireText:    tn.RequireText,
+				AllowAbnormal:  tn.AllowAbnormal,
+				Status:         NodePending,
+				NodesConfigID:  tn.NodesConfigID,
+				TaskTypeCode:   tn.TaskTypeID,
+				IsMandatory:    tn.IsMandatory,
+				IsRequired:     tn.IsRequired,
+				AlgorithmID:    tn.AlgorithmID,
+				QueryID:        tn.QueryID,
+				Remark:         tn.Remark,
+			}
+			if err := tx.Create(&taskNode).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return task, err
 }
 
-// AdminListWithScope 带数据范围过滤查询后台任务列表
-// scope: 当前用户的数据范围信息
-func (s *Service) AdminListWithScope(status string, limit int, scope interface{}) ([]database.InspectionTask, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
+// AdminList 按条件查询后台任务列表，支持分页。
+func (s *Service) AdminList(query AdminListQuery) (AdminListResult, error) {
+	if query.Page <= 0 {
+		query.Page = 1
+	}
+	if query.PageSize <= 0 || query.PageSize > 100 {
+		query.PageSize = 20
 	}
 
-	query := s.db.Model(&database.InspectionTask{}).Order("due_at asc, id asc").Limit(limit)
+	db := s.db.Model(&database.InspectionTask{})
+	if keyword := strings.TrimSpace(query.Keyword); keyword != "" {
+		like := "%" + escapeLike(keyword) + "%"
+		db = db.Where("task_name LIKE ? OR point_name LIKE ? OR equipment_name LIKE ?", like, like, like)
+	}
+	if status := strings.TrimSpace(query.Status); status != "" {
+		db = db.Where("status = ?", status)
+	}
+	if query.TemplateID > 0 {
+		db = db.Where("template_id = ?", query.TemplateID)
+	}
 
-	// 应用数据范围过滤
-	if scope != nil {
-		// 尝试转换为 ScopeInfo 接口
-		if scopeInfo, ok := scope.(interface {
-			IsAll() bool
-			IsSelfOnly() bool
-			GetUserID() uint64
-			GetOrgCodes() []string
-		}); ok {
-			if scopeInfo.IsAll() {
-				// 全部数据 - 不限制
-			} else if scopeInfo.IsSelfOnly() {
-				// 仅自己创建或分配给自己的任务
-				query = query.Where("executor_id = ? OR assignee_id = ?", scopeInfo.GetUserID(), scopeInfo.GetUserID())
-			} else if len(scopeInfo.GetOrgCodes()) > 0 {
-				// 组织范围 - 通过 JOIN users 表过滤
-				// 任务通过 executor_id 关联用户，用户通过 org_code 关联组织
-				query = query.Joins("LEFT JOIN users AS executor_users ON executor_users.id = inspection_tasks.executor_id").
-					Where("executor_users.org_code IN ?", scopeInfo.GetOrgCodes())
-			} else {
-				// 无权限 - 返回空结果
-				return []database.InspectionTask{}, nil
-			}
+	var total int64
+	if err := db.Count(&total).Error; err != nil {
+		return AdminListResult{}, err
+	}
+
+	var tasks []database.InspectionTask
+	if err := db.Order("due_at asc, id asc").Offset((query.Page - 1) * query.PageSize).Limit(query.PageSize).Find(&tasks).Error; err != nil {
+		return AdminListResult{}, err
+	}
+
+	// 批量查询模板名称
+	templateIDs := make(map[uint64]bool)
+	for _, t := range tasks {
+		templateIDs[t.TemplateID] = true
+	}
+	templateNames := make(map[uint64]string)
+	if len(templateIDs) > 0 {
+		ids := make([]uint64, 0, len(templateIDs))
+		for id := range templateIDs {
+			ids = append(ids, id)
+		}
+		var templates []database.InspectionTemplate
+		s.db.Where("id IN ?", ids).Find(&templates)
+		for _, t := range templates {
+			templateNames[t.ID] = t.Name
 		}
 	}
 
-	if status != "" {
-		query = query.Where("status = ?", status)
+	items := make([]TaskListItem, len(tasks))
+	for i, t := range tasks {
+		items[i] = TaskListItem{
+			InspectionTask: t,
+			TemplateName:   templateNames[t.TemplateID],
+		}
 	}
 
-	var tasks []database.InspectionTask
-	return tasks, query.Find(&tasks).Error
+	return AdminListResult{Items: items, Total: total}, nil
 }
 
 // GlassesList 查询指定眼镜用户可见的个人任务和班组任务。
@@ -151,9 +275,14 @@ func (s *Service) Start(taskID, userID uint64) error {
 }
 
 type NodeResultInput struct {
-	TextNote      string   `json:"text_note"`
-	AttachmentIDs []uint64 `json:"attachment_ids"`
-	Abnormal      bool     `json:"abnormal"`
+	TaskTypeCode     string   `json:"task_type_code"`
+	FeedbackContent  string   `json:"feedback_content"`
+	TextNote         string   `json:"text_note"`
+	LocationGPS      string   `json:"location_gps"`
+	AttachmentIDs    []uint64 `json:"attachment_ids"`
+	IsAbnormal       bool     `json:"is_abnormal"`
+	AbnormalDesc     string   `json:"abnormal_desc"`
+	Remark           string   `json:"remark"`
 }
 
 // SubmitNode 提交单个巡检节点结果，并通过幂等键避免弱网重复提交。
@@ -193,15 +322,43 @@ func (s *Service) SubmitNode(taskID, nodeID, userID uint64, idemKey string, inpu
 			}
 		}
 		status := NodeCompleted
-		if input.Abnormal {
+		if input.IsAbnormal {
 			status = NodeAbnormal
 		}
-		result = database.TaskNodeResult{TaskID: taskID, NodeID: nodeID, UserID: userID, Status: status, TextNote: input.TextNote, IdempotencyKey: idemKey, CompletedAt: time.Now().UTC()}
+
+		// 构建附件ID字符串
+		var attachmentIDStr string
+		if len(input.AttachmentIDs) > 0 {
+			var idStrs []string
+			for _, id := range input.AttachmentIDs {
+				idStrs = append(idStrs, string(rune(id)))
+			}
+			attachmentIDStr = strings.Join(idStrs, ",")
+		}
+
+		result = database.TaskNodeResult{
+			TaskID:           taskID,
+			NodeID:           nodeID,
+			UserID:           userID,
+			Status:           status,
+			TaskTypeCode:     input.TaskTypeCode,
+			FeedbackContent:  input.FeedbackContent,
+			TextNote:         input.TextNote,
+			LocationGPS:      input.LocationGPS,
+			AttachmentIDs:    attachmentIDStr,
+			IsAbnormal:       input.IsAbnormal,
+			AbnormalDesc:     input.AbnormalDesc,
+			Remark:           input.Remark,
+			IdempotencyKey:   idemKey,
+			CompletedAt:      time.Now().UTC(),
+		}
 		if err := tx.Where(database.TaskNodeResult{TaskID: taskID, NodeID: nodeID}).Assign(result).FirstOrCreate(&result).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&database.Attachment{}).Where("id IN ?", input.AttachmentIDs).Updates(map[string]any{"bind_status": "bound", "task_id": taskID, "node_id": nodeID, "result_id": result.ID}).Error; err != nil {
-			return err
+		if len(input.AttachmentIDs) > 0 {
+			if err := tx.Model(&database.Attachment{}).Where("id IN ?", input.AttachmentIDs).Updates(map[string]any{"bind_status": "bound", "task_id": taskID, "node_id": nodeID, "result_id": result.ID}).Error; err != nil {
+				return err
+			}
 		}
 		return tx.Model(&node).Updates(map[string]any{"status": status}).Error
 	})
@@ -223,7 +380,7 @@ func (s *Service) SubmitTask(taskID, userID uint64) error {
 			return err
 		}
 		var missing int64
-		if err := tx.Model(&database.InspectionTaskNode{}).Where("task_id = ? AND status = ? AND (min_photos > 0 OR require_text = ?)", taskID, NodePending, true).Count(&missing).Error; err != nil {
+		if err := tx.Model(&database.InspectionTaskNode{}).Where("task_id = ? AND status = ? AND is_required = ?", taskID, NodePending, "1").Count(&missing).Error; err != nil {
 			return err
 		}
 		if missing > 0 {
@@ -259,7 +416,43 @@ func (s *Service) Cancel(taskID uint64) error {
 	return nil
 }
 
+// AdminDelete 后台删除巡检任务及其关联的节点、节点结果、附件和缺陷记录。
+func (s *Service) AdminDelete(taskID uint64) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var task database.InspectionTask
+		if err := tx.First(&task, taskID).Error; err != nil {
+			return err
+		}
+		// 仅允许删除未在执行中的任务（pending / assigned / submitted / completed / cancelled / overdue）
+		if task.Status == StatusInProgress {
+			return httperr.New(httperr.TaskStateConflict, "cannot delete an in-progress task")
+		}
+		if err := tx.Where("task_id = ?", taskID).Delete(&database.InspectionTaskNode{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("task_id = ?", taskID).Delete(&database.TaskNodeResult{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("task_id = ?", taskID).Delete(&database.Attachment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("task_id = ?", taskID).Delete(&database.Defect{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&task).Error
+	})
+}
+
 // ownsTask 判断当前用户是否是任务执行人。
 func ownsTask(task database.InspectionTask, userID uint64) bool {
 	return (task.ExecutorID != nil && *task.ExecutorID == userID) || (task.AssigneeType == "user" && task.AssigneeID == userID)
+}
+
+func timePtr(t time.Time) *time.Time { return &t }
+
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
 }

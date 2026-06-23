@@ -11,17 +11,14 @@ import (
 	"aiglasses/server/internal/attachments"
 	"aiglasses/server/internal/auth"
 	"aiglasses/server/internal/businesscodes"
-	"aiglasses/server/internal/datascope"
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/devices"
 	"aiglasses/server/internal/events"
-	"aiglasses/server/internal/menus"
-	"aiglasses/server/internal/monitoring"
+	"aiglasses/server/internal/nodes"
 	"aiglasses/server/internal/organizations"
 	"aiglasses/server/internal/plans"
+	"aiglasses/server/internal/points"
 	"aiglasses/server/internal/platform/httperr"
-	"aiglasses/server/internal/rbac"
-	"aiglasses/server/internal/roles"
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
 	"aiglasses/server/internal/users"
@@ -33,15 +30,12 @@ type Handler struct {
 	auth          *auth.Service
 	attachments   *attachments.Service
 	businessCodes *businesscodes.Service
-	datascope     *datascope.Service
 	defects       *defects.Service
 	devices       *devices.Service
-	menus         *menus.Service
-	monitoringHub *monitoring.Hub
+	nodes         *nodes.Service
 	organizations *organizations.Service
 	plans         *plans.Service
-	rbac          *rbac.Service
-	roles         *roles.Service
+	points        *points.Service
 	tasks         *tasks.Service
 	templates     *templates.Service
 	users         *users.Service
@@ -50,33 +44,8 @@ type Handler struct {
 }
 
 // NewHandler 创建 HTTP 处理器集合，并注入所有业务服务。
-func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, businessCodeSvc *businesscodes.Service, datascopeSvc *datascope.Service, defectSvc *defects.Service, deviceSvc *devices.Service, menuSvc *menus.Service, orgSvc *organizations.Service, planSvc *plans.Service, roleSvc *roles.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, workflowSvc *workflows.Service, scheduler *events.Scheduler, rbacSvc *rbac.Service, monitoringHub *monitoring.Hub) *Handler {
-	return &Handler{auth: authSvc, attachments: attachmentSvc, businessCodes: businessCodeSvc, datascope: datascopeSvc, defects: defectSvc, devices: deviceSvc, menus: menuSvc, monitoringHub: monitoringHub, organizations: orgSvc, plans: planSvc, rbac: rbacSvc, roles: roleSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, workflows: workflowSvc, scheduler: scheduler}
-}
-
-// DataScopeMiddleware 数据范围过滤中间件，将当前用户的数据范围信息注入上下文
-func DataScopeMiddleware(datascopeSvc *datascope.Service, orgSvc *organizations.Service) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		userID := auth.UserID(c)
-		// 使用带完整组织树查询的方法
-		scope, err := datascopeSvc.GetUserScopeWithOrgCodes(userID, orgSvc.GetSubOrgCodes)
-		if err != nil {
-			httperr.Respond(c, err)
-			c.Abort()
-			return
-		}
-		c.Set("datascope", scope)
-		c.Next()
-	}
-}
-
-// DataScope 从 Gin 上下文中读取数据范围信息
-func DataScope(c *gin.Context) *datascope.ScopeInfo {
-	value, exists := c.Get("datascope")
-	if !exists {
-		return nil
-	}
-	return value.(*datascope.ScopeInfo)
+func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, businessCodeSvc *businesscodes.Service, defectSvc *defects.Service, deviceSvc *devices.Service, nodesSvc *nodes.Service, orgSvc *organizations.Service, planSvc *plans.Service, pointsSvc *points.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, workflowSvc *workflows.Service, scheduler *events.Scheduler) *Handler {
+	return &Handler{auth: authSvc, attachments: attachmentSvc, businessCodes: businessCodeSvc, defects: defectSvc, devices: deviceSvc, nodes: nodesSvc, organizations: orgSvc, plans: planSvc, points: pointsSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, workflows: workflowSvc, scheduler: scheduler}
 }
 
 // Register 注册公开接口、后台接口和眼镜端接口。
@@ -85,32 +54,54 @@ func (h *Handler) Register(r *gin.Engine) {
 	api := r.Group("/api")
 	api.POST("/admin/auth/login", h.adminLogin)
 	api.POST("/glasses/auth/token", h.glassesLogin)
-	adminAuth := api.Group("/admin", auth.Middleware(h.auth, auth.ScopeAdmin))
-	adminAuth.GET("/users/me", h.currentUser)
-	adminAuth.POST("/users/me/update", h.updateCurrentUser)
-	// 实时日志属于系统运维能力，不走业务数据范围过滤；权限由 system:monitor:view 单独控制。
-	adminAuth.GET("/monitoring/logs/recent", h.monitorViewRequired(), h.recentMonitorLogs)
-	admin := adminAuth.Group("", DataScopeMiddleware(h.datascope, h.organizations))
+	admin := api.Group("/admin", auth.Middleware(h.auth, auth.ScopeAdmin))
+	// 节点管理
+	admin.GET("/nodes", h.listNodes)
+	admin.GET("/nodes/unassigned", h.listUnassignedNodes)
+	admin.GET("/nodes/:id", h.getNode)
+	admin.POST("/nodes", h.createNode)
+	admin.POST("/nodes/:id/update", h.updateNode)
+	admin.POST("/nodes/:id/delete", h.deleteNode)
+	// 巡检点位管理
+	admin.GET("/inspection-points", h.listInspectionPoints)
+	admin.GET("/inspection-points/all", h.listAllInspectionPoints)
+	admin.GET("/inspection-points/:id", h.getInspectionPoint)
+	admin.POST("/inspection-points", h.createInspectionPoint)
+	admin.POST("/inspection-points/:id/update", h.updateInspectionPoint)
+	admin.POST("/inspection-points/:id/enable", h.enableInspectionPoint)
+	admin.POST("/inspection-points/:id/disable", h.disableInspectionPoint)
+	admin.POST("/inspection-points/:id/delete", h.deleteInspectionPoint)
+	// 模板管理
 	admin.POST("/templates", h.createTemplate)
 	admin.GET("/templates", h.listTemplates)
+	admin.GET("/templates/all", h.listAllTemplates)
+	admin.GET("/templates/:id", h.getTemplate)
+	admin.POST("/templates/:id/update", h.updateTemplate)
+	admin.POST("/templates/:id/enable", h.enableTemplate)
+	admin.POST("/templates/:id/disable", h.disableTemplate)
+	admin.POST("/templates/:id/delete", h.deleteTemplate)
+	// 计划管理
 	admin.POST("/plans", h.createPlan)
 	admin.GET("/plans", h.listPlans)
+	admin.GET("/plans/:id", h.getPlan)
+	admin.POST("/plans/:id/update", h.updatePlan)
 	admin.POST("/plans/:id/enable", h.enablePlan)
+	admin.POST("/plans/:id/disable", h.disablePlan)
+	admin.POST("/plans/:id/delete", h.deletePlan)
 	admin.POST("/plans/:id/generate-now", h.generateNow)
+	// 任务管理
+	admin.POST("/tasks", h.createTask)
 	admin.GET("/tasks", h.adminTasks)
 	admin.GET("/tasks/:id", h.taskDetail)
+	admin.GET("/tasks/:id/results", h.taskResults)
 	admin.POST("/tasks/:id/cancel", h.cancelTask)
 	admin.POST("/tasks/:id/complete", h.completeTask)
+	admin.POST("/tasks/:id/delete", h.deleteTask)
 	admin.GET("/defects", h.listDefects)
 	admin.POST("/defects/:id/confirm", h.confirmDefect)
 	admin.POST("/defects/:id/close", h.closeDefect)
 	admin.GET("/devices", h.listDevices)
-	admin.GET("/devices/:id", h.getDevice)
 	admin.POST("/devices", h.registerDevice)
-	admin.POST("/devices/:id/update", h.updateDevice)
-	admin.POST("/devices/:id/delete", h.deleteDevice)
-	admin.POST("/devices/:id/enable", h.enableDevice)
-	admin.POST("/devices/:id/disable", h.disableDevice)
 	admin.POST("/devices/:id/revoke", h.revokeDevice)
 	admin.POST("/devices/:id/disable-lost", h.disableLostDevice)
 	admin.GET("/business-codes", h.listBusinessCodes)
@@ -128,6 +119,7 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/organizations/:id/disable", h.disableOrganization)
 	admin.POST("/organizations/:id/delete", h.deleteOrganization)
 	admin.GET("/users", h.listUsers)
+	admin.GET("/users/all", h.listAllUsers)
 	admin.GET("/users/:id", h.getUser)
 	admin.POST("/users", h.createUser)
 	admin.POST("/users/:id/update", h.updateUser)
@@ -135,20 +127,6 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/users/:id/disable", h.disableUser)
 	admin.POST("/users/:id/avatar", h.setUserAvatar)
 	admin.GET("/users/:id/avatar", h.getUserAvatar)
-	admin.GET("/roles", h.listRoles)
-	admin.GET("/roles/all", h.listAllRoles)
-	admin.GET("/roles/:id", h.getRole)
-	admin.POST("/roles", h.createRole)
-	admin.POST("/roles/:id/update", h.updateRole)
-	admin.POST("/roles/:id/menus", h.updateRoleMenus)
-	admin.POST("/roles/:id/delete", h.deleteRole)
-	admin.GET("/menus", h.listMenus)
-	admin.GET("/menus/tree", h.menuTree)
-	admin.GET("/menus/mine", h.myMenus)
-	admin.GET("/menus/:id", h.getMenu)
-	admin.POST("/menus", h.createMenu)
-	admin.POST("/menus/:id/update", h.updateMenu)
-	admin.POST("/menus/:id/delete", h.deleteMenu)
 	admin.GET("/workflows", h.listWorkflows)
 	admin.POST("/workflows", h.createWorkflow)
 	admin.GET("/workflows/:id", h.getWorkflow)
@@ -292,13 +270,7 @@ func (h *Handler) generateBusinessCode(c *gin.Context) {
 		httperr.Respond(c, err)
 		return
 	}
-	userID := auth.UserID(c)
-	user, err := h.users.Get(userID)
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	code, err := h.businessCodes.GenerateDaily(c.Request.Context(), body.Code, user.OrgCode)
+	code, err := h.businessCodes.GenerateDaily(c.Request.Context(), body.Code)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -321,14 +293,80 @@ func (h *Handler) createTemplate(c *gin.Context) {
 	httperr.Created(c, result)
 }
 
-// listTemplates 查询巡检模板列表。
+// listTemplates 查询巡检模板列表（分页）。
 func (h *Handler) listTemplates(c *gin.Context) {
-	result, err := h.templates.List()
+	result, err := h.templates.List(templates.ListQuery{
+		Keyword:  c.Query("keyword"),
+		Page:     intQuery(c, "page", 1),
+		PageSize: intQuery(c, "page_size", 20),
+	})
 	if err != nil {
 		httperr.Respond(c, err)
 		return
 	}
 	httperr.OK(c, result)
+}
+
+// listAllTemplates 查询所有模板（不分页，用于下拉选择）。
+func (h *Handler) listAllTemplates(c *gin.Context) {
+	result, err := h.templates.ListAll()
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// getTemplate 查询模板详情（含节点列表）。
+func (h *Handler) getTemplate(c *gin.Context) {
+	template, ns, err := h.templates.GetDetail(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"template": template, "nodes": ns})
+}
+
+// updateTemplate 更新巡检模板。
+func (h *Handler) updateTemplate(c *gin.Context) {
+	var input templates.UpdateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.templates.Update(idParam(c, "id"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// enableTemplate 启用模板。
+func (h *Handler) enableTemplate(c *gin.Context) {
+	if err := h.templates.Enable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"enabled": true})
+}
+
+// disableTemplate 停用模板。
+func (h *Handler) disableTemplate(c *gin.Context) {
+	if err := h.templates.Disable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"disabled": true})
+}
+
+// deleteTemplate 删除模板。
+func (h *Handler) deleteTemplate(c *gin.Context) {
+	if err := h.templates.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
 }
 
 // createPlan 创建巡检任务计划。
@@ -346,9 +384,39 @@ func (h *Handler) createPlan(c *gin.Context) {
 	httperr.Created(c, result)
 }
 
-// listPlans 查询巡检任务计划列表。
+// listPlans 查询巡检任务计划列表（分页）。
 func (h *Handler) listPlans(c *gin.Context) {
-	result, err := h.plans.List()
+	result, err := h.plans.List(plans.ListQuery{
+		Keyword:  c.Query("keyword"),
+		Status:   c.Query("status"),
+		Page:     intQuery(c, "page", 1),
+		PageSize: intQuery(c, "page_size", 20),
+	})
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// getPlan 查询计划详情。
+func (h *Handler) getPlan(c *gin.Context) {
+	result, err := h.plans.GetDetail(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// updatePlan 更新计划。
+func (h *Handler) updatePlan(c *gin.Context) {
+	var input plans.UpdateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.plans.Update(idParam(c, "id"), input)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -365,24 +433,73 @@ func (h *Handler) enablePlan(c *gin.Context) {
 	httperr.OK(c, gin.H{"enabled": true})
 }
 
-// generateNow 手动触发一次计划调度生成任务。
-func (h *Handler) generateNow(c *gin.Context) {
-	if err := h.scheduler.Tick(time.Now().UTC()); err != nil {
+// disablePlan 停用计划。
+func (h *Handler) disablePlan(c *gin.Context) {
+	if err := h.plans.Disable(idParam(c, "id")); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	httperr.OK(c, gin.H{"generated": true})
+	httperr.OK(c, gin.H{"disabled": true})
 }
 
-// adminTasks 查询后台任务列表（带数据范围过滤）。
+// deletePlan 删除计划。
+func (h *Handler) deletePlan(c *gin.Context) {
+	if err := h.plans.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// generateNow 为指定计划手动触发一次任务生成。
+func (h *Handler) generateNow(c *gin.Context) {
+	generated, err := h.scheduler.GenerateForPlan(idParam(c, "id"), time.Now().UTC())
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"generated": generated})
+}
+
+// createTask 后台手动创建巡检任务。
+func (h *Handler) createTask(c *gin.Context) {
+	var input tasks.AdminCreateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.tasks.AdminCreate(input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// adminTasks 查询后台任务列表（分页）。
 func (h *Handler) adminTasks(c *gin.Context) {
-	scope := DataScope(c)
-	result, err := h.tasks.AdminListWithScope(c.Query("status"), intQuery(c, "limit", 50), scope)
+	result, err := h.tasks.AdminList(tasks.AdminListQuery{
+		Keyword:    c.Query("keyword"),
+		Status:     c.Query("status"),
+		TemplateID: func() uint64 { id, _ := strconv.ParseUint(c.Query("template_id"), 10, 64); return id }(),
+		Page:       intQuery(c, "page", 1),
+		PageSize:   intQuery(c, "page_size", 20),
+	})
 	if err != nil {
 		httperr.Respond(c, err)
 		return
 	}
 	httperr.OK(c, result)
+}
+
+// taskResults 查询任务执行结果。
+func (h *Handler) taskResults(c *gin.Context) {
+	_, ns, results, attachments, defects, err := h.tasks.Detail(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"nodes": ns, "results": results, "attachments": attachments, "defects": defects})
 }
 
 // glassesTasks 查询当前眼镜用户可执行任务列表。
@@ -465,6 +582,15 @@ func (h *Handler) completeTask(c *gin.Context) {
 	httperr.OK(c, gin.H{"completed": true})
 }
 
+// deleteTask 后台删除巡检任务及其关联数据。
+func (h *Handler) deleteTask(c *gin.Context) {
+	if err := h.tasks.AdminDelete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
 // reportAbnormal 处理眼镜端异常上报并创建缺陷。
 func (h *Handler) reportAbnormal(c *gin.Context) {
 	var body struct {
@@ -527,93 +653,22 @@ func (h *Handler) listDevices(c *gin.Context) {
 	httperr.OK(c, result)
 }
 
-// getDevice 查询单个设备详情。
-func (h *Handler) getDevice(c *gin.Context) {
-	result, err := h.devices.Get(idParam(c, "id"))
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
-}
-
 // registerDevice 处理后台登记新设备。
 func (h *Handler) registerDevice(c *gin.Context) {
 	var body struct {
-		SerialNo    string  `json:"serial_no"`
-		Name        string  `json:"name"`
-		OrgCode     string  `json:"org_code"`
-		Status      string  `json:"status"`
-		BoundUserID *uint64 `json:"bound_user_id"`
+		SerialNo string `json:"serial_no"`
+		Name     string `json:"name"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	result, err := h.devices.Register(devices.RegisterInput{
-		SerialNo:    body.SerialNo,
-		Name:        body.Name,
-		OrgCode:     body.OrgCode,
-		Status:      body.Status,
-		BoundUserID: body.BoundUserID,
-	})
+	result, err := h.devices.Register(body.SerialNo, body.Name)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
 	}
 	httperr.Created(c, result)
-}
-
-// updateDevice 更新设备信息。
-func (h *Handler) updateDevice(c *gin.Context) {
-	var body struct {
-		Name        string  `json:"name"`
-		OrgCode     string  `json:"org_code"`
-		Status      string  `json:"status"`
-		BoundUserID *uint64 `json:"bound_user_id"`
-	}
-	if err := c.ShouldBindJSON(&body); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	result, err := h.devices.Update(idParam(c, "id"), devices.UpdateInput{
-		Name:        body.Name,
-		OrgCode:     body.OrgCode,
-		Status:      body.Status,
-		BoundUserID: body.BoundUserID,
-	})
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
-}
-
-// deleteDevice 删除设备。
-func (h *Handler) deleteDevice(c *gin.Context) {
-	if err := h.devices.Delete(idParam(c, "id")); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, gin.H{"deleted": true})
-}
-
-// enableDevice 启用设备。
-func (h *Handler) enableDevice(c *gin.Context) {
-	if err := h.devices.Enable(idParam(c, "id")); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, gin.H{"status": devices.StatusActive})
-}
-
-// disableDevice 停用设备。
-func (h *Handler) disableDevice(c *gin.Context) {
-	if err := h.devices.Disable(idParam(c, "id")); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, gin.H{"status": devices.StatusDisabled})
 }
 
 // revokeDevice 处理后台撤销设备。
@@ -711,16 +766,15 @@ func (h *Handler) deleteOrganization(c *gin.Context) {
 	httperr.OK(c, gin.H{"deleted": true})
 }
 
-// listUsers 查询后台用户列表（带数据范围过滤）。
+// listUsers 查询后台用户列表。
 func (h *Handler) listUsers(c *gin.Context) {
-	scope := DataScope(c)
-	result, err := h.users.ListWithScope(users.ListQuery{
+	result, err := h.users.List(users.ListQuery{
 		Keyword:  c.Query("keyword"),
 		OrgCode:  c.Query("org_code"),
 		Status:   c.Query("status"),
 		Page:     intQuery(c, "page", 1),
 		PageSize: intQuery(c, "page_size", 20),
-	}, scope)
+	})
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -728,45 +782,14 @@ func (h *Handler) listUsers(c *gin.Context) {
 	httperr.OK(c, result)
 }
 
-// currentUser 查询当前登录用户详情，供个人中心和顶部用户信息使用。
-func (h *Handler) currentUser(c *gin.Context) {
-	result, err := h.currentUserPayload(auth.UserID(c))
+// listAllUsers 查询所有启用用户（不分页，用于下拉选择）。
+func (h *Handler) listAllUsers(c *gin.Context) {
+	result, err := h.users.ListAll()
 	if err != nil {
 		httperr.Respond(c, err)
 		return
 	}
 	httperr.OK(c, result)
-}
-
-// updateCurrentUser 更新当前登录用户的个人资料，不修改组织、角色、状态等管理员字段。
-func (h *Handler) updateCurrentUser(c *gin.Context) {
-	var input users.ProfileInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	if _, err := h.users.UpdateProfile(auth.UserID(c), input); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	result, err := h.currentUserPayload(auth.UserID(c))
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
-}
-
-func (h *Handler) currentUserPayload(userID uint64) (gin.H, error) {
-	user, err := h.users.Get(userID)
-	if err != nil {
-		return nil, err
-	}
-	orgName, err := h.auth.OrganizationName(user.OrgCode)
-	if err != nil {
-		return nil, err
-	}
-	return gin.H{"user": user, "org_name": orgName, "company_name": orgName}, nil
 }
 
 // getUser 查询后台用户详情。
@@ -879,6 +902,85 @@ func (h *Handler) presignAttachment(c *gin.Context) {
 		return
 	}
 	httperr.Created(c, result)
+}
+
+// listNodes 查询节点列表（分页）。
+func (h *Handler) listNodes(c *gin.Context) {
+	query := nodes.ListQuery{
+		Keyword:  c.Query("keyword"),
+		NodeType: c.Query("node_type"),
+		Page:     intQuery(c, "page", 1),
+		PageSize: intQuery(c, "page_size", 20),
+	}
+	if assigned := c.Query("assigned"); assigned != "" {
+		b := assigned == "true"
+		query.Assigned = &b
+	}
+	result, err := h.nodes.List(query)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// getNode 查询节点详情。
+func (h *Handler) getNode(c *gin.Context) {
+	result, err := h.nodes.Get(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// createNode 创建巡检节点。
+func (h *Handler) createNode(c *gin.Context) {
+	var input nodes.CreateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.nodes.Create(input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
+}
+
+// updateNode 更新巡检节点。
+func (h *Handler) updateNode(c *gin.Context) {
+	var input nodes.UpdateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.nodes.Update(idParam(c, "id"), input)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// deleteNode 删除巡检节点。
+func (h *Handler) deleteNode(c *gin.Context) {
+	if err := h.nodes.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// listUnassignedNodes 查询未分配的节点列表（供模板选择）。
+func (h *Handler) listUnassignedNodes(c *gin.Context) {
+	result, err := h.nodes.ListUnassigned()
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
 }
 
 // idParam 从路由参数读取无符号整数 ID。
@@ -1038,9 +1140,9 @@ func (h *Handler) reorderWorkflowSteps(c *gin.Context) {
 	httperr.OK(c, gin.H{"reordered": true})
 }
 
-// listRoles 查询角色列表。
-func (h *Handler) listRoles(c *gin.Context) {
-	result, err := h.roles.List(roles.ListQuery{
+// listInspectionPoints 查询巡检点位列表（分页）。
+func (h *Handler) listInspectionPoints(c *gin.Context) {
+	result, err := h.points.List(points.ListQuery{
 		Keyword:  c.Query("keyword"),
 		Page:     intQuery(c, "page", 1),
 		PageSize: intQuery(c, "page_size", 20),
@@ -1052,9 +1154,9 @@ func (h *Handler) listRoles(c *gin.Context) {
 	httperr.OK(c, result)
 }
 
-// listAllRoles 查询所有启用的角色。
-func (h *Handler) listAllRoles(c *gin.Context) {
-	result, err := h.roles.ListAll()
+// listAllInspectionPoints 查询所有启用的巡检点位（精简字段，用于下拉选择）。
+func (h *Handler) listAllInspectionPoints(c *gin.Context) {
+	result, err := h.points.ListAll()
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -1062,9 +1164,9 @@ func (h *Handler) listAllRoles(c *gin.Context) {
 	httperr.OK(c, result)
 }
 
-// getRole 查询角色详情。
-func (h *Handler) getRole(c *gin.Context) {
-	result, err := h.roles.Get(idParam(c, "id"))
+// getInspectionPoint 查询巡检点位详情。
+func (h *Handler) getInspectionPoint(c *gin.Context) {
+	result, err := h.points.Get(idParam(c, "id"))
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -1072,14 +1174,14 @@ func (h *Handler) getRole(c *gin.Context) {
 	httperr.OK(c, result)
 }
 
-// createRole 创建角色。
-func (h *Handler) createRole(c *gin.Context) {
-	var input roles.CreateInput
+// createInspectionPoint 创建巡检点位。
+func (h *Handler) createInspectionPoint(c *gin.Context) {
+	var input points.CreateInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	result, err := h.roles.Create(input)
+	result, err := h.points.Create(input)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -1087,14 +1189,14 @@ func (h *Handler) createRole(c *gin.Context) {
 	httperr.Created(c, result)
 }
 
-// updateRole 更新角色。
-func (h *Handler) updateRole(c *gin.Context) {
-	var input roles.UpdateInput
+// updateInspectionPoint 更新巡检点位。
+func (h *Handler) updateInspectionPoint(c *gin.Context) {
+	var input points.UpdateInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	result, err := h.roles.Update(idParam(c, "id"), input)
+	result, err := h.points.Update(idParam(c, "id"), input)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -1102,107 +1204,29 @@ func (h *Handler) updateRole(c *gin.Context) {
 	httperr.OK(c, result)
 }
 
-// deleteRole 删除角色。
-func (h *Handler) deleteRole(c *gin.Context) {
-	if err := h.roles.Delete(idParam(c, "id")); err != nil {
+// enableInspectionPoint 启用巡检点位。
+func (h *Handler) enableInspectionPoint(c *gin.Context) {
+	if err := h.points.Enable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"enabled": true})
+}
+
+// disableInspectionPoint 停用巡检点位。
+func (h *Handler) disableInspectionPoint(c *gin.Context) {
+	if err := h.points.Disable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"disabled": true})
+}
+
+// deleteInspectionPoint 删除巡检点位。
+func (h *Handler) deleteInspectionPoint(c *gin.Context) {
+	if err := h.points.Delete(idParam(c, "id")); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
 	httperr.OK(c, gin.H{"deleted": true})
-}
-
-// updateRoleMenus 更新角色菜单权限。
-func (h *Handler) updateRoleMenus(c *gin.Context) {
-	var input struct {
-		MenuIDs string `json:"menu_ids"`
-	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	if err := h.roles.UpdateMenus(idParam(c, "id"), input.MenuIDs); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, gin.H{"success": true})
-}
-
-// listMenus 查询菜单列表。
-func (h *Handler) listMenus(c *gin.Context) {
-	result, err := h.menus.ListAll()
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
-}
-
-// menuTree 查询菜单树。
-func (h *Handler) menuTree(c *gin.Context) {
-	result, err := h.menus.ListTree()
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
-}
-
-// getMenu 查询菜单详情。
-func (h *Handler) getMenu(c *gin.Context) {
-	result, err := h.menus.Get(idParam(c, "id"))
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
-}
-
-// createMenu 创建菜单。
-func (h *Handler) createMenu(c *gin.Context) {
-	var input menus.CreateInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	result, err := h.menus.Create(input)
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.Created(c, result)
-}
-
-// updateMenu 更新菜单。
-func (h *Handler) updateMenu(c *gin.Context) {
-	var input menus.UpdateInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	result, err := h.menus.Update(idParam(c, "id"), input)
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
-}
-
-// deleteMenu 删除菜单。
-func (h *Handler) deleteMenu(c *gin.Context) {
-	if err := h.menus.Delete(idParam(c, "id")); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, gin.H{"deleted": true})
-}
-
-// myMenus 获取当前用户的菜单权限树。
-func (h *Handler) myMenus(c *gin.Context) {
-	userID := auth.UserID(c)
-	result, err := h.menus.GetUserMenus(userID)
-	if err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, result)
 }

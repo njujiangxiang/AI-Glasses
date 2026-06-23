@@ -84,7 +84,15 @@ func (s *Service) Create(createdBy uint64, input WorkflowInput) (database.Workfl
 	if err := s.validateWorkflow(model, 0); err != nil {
 		return database.Workflow{}, err
 	}
-	return model, s.db.Create(&model).Error
+	if err := s.db.Create(&model).Error; err != nil {
+		return database.Workflow{}, err
+	}
+	// 重新加载完整记录以获取数据库生成的字段
+	var result database.Workflow
+	if err := s.db.First(&result, model.ID).Error; err != nil {
+		return database.Workflow{}, err
+	}
+	return result, nil
 }
 
 // Update 更新工作流基本信息
@@ -98,7 +106,15 @@ func (s *Service) Update(id uint64, input WorkflowInput) (database.Workflow, err
 	if err := s.validateWorkflow(model, id); err != nil {
 		return database.Workflow{}, err
 	}
-	return model, s.db.Save(&model).Error
+	if err := s.db.Save(&model).Error; err != nil {
+		return database.Workflow{}, err
+	}
+	// 重新加载完整记录
+	var result database.Workflow
+	if err := s.db.First(&result, id).Error; err != nil {
+		return database.Workflow{}, err
+	}
+	return result, nil
 }
 
 // Get 获取工作流详情
@@ -212,7 +228,15 @@ func (s *Service) AddStep(workflowID uint64, input StepInput) (database.Workflow
 	if err := s.validateStep(model, 0, input.Options); err != nil {
 		return database.WorkflowStep{}, err
 	}
-	return model, s.db.Create(&model).Error
+	if err := s.db.Create(&model).Error; err != nil {
+		return database.WorkflowStep{}, err
+	}
+	// 重新加载完整记录
+	var result database.WorkflowStep
+	if err := s.db.First(&result, model.ID).Error; err != nil {
+		return database.WorkflowStep{}, err
+	}
+	return result, nil
 }
 
 // UpdateStep 更新步骤
@@ -241,7 +265,15 @@ func (s *Service) UpdateStep(id uint64, input StepInput) (database.WorkflowStep,
 	if err := s.validateStep(model, id, input.Options); err != nil {
 		return database.WorkflowStep{}, err
 	}
-	return model, s.db.Save(&model).Error
+	if err := s.db.Save(&model).Error; err != nil {
+		return database.WorkflowStep{}, err
+	}
+	// 重新加载完整记录
+	var result database.WorkflowStep
+	if err := s.db.First(&result, id).Error; err != nil {
+		return database.WorkflowStep{}, err
+	}
+	return result, nil
 }
 
 // DeleteStep 删除步骤
@@ -294,7 +326,15 @@ func (s *Service) DuplicateStep(id uint64) (database.WorkflowStep, error) {
 		AbnormalRequireNote:      step.AbnormalRequireNote,
 		AbnormalRequireSignature: step.AbnormalRequireSignature,
 	}
-	return newStep, s.db.Create(&newStep).Error
+	if err := s.db.Create(&newStep).Error; err != nil {
+		return database.WorkflowStep{}, err
+	}
+	// 重新加载完整记录
+	var result database.WorkflowStep
+	if err := s.db.First(&result, newStep.ID).Error; err != nil {
+		return database.WorkflowStep{}, err
+	}
+	return result, nil
 }
 
 func (s *Service) validateWorkflow(model database.Workflow, currentID uint64) error {

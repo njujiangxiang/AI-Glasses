@@ -12,6 +12,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&TaskTypeDict{}, &AlgorithmConfig{}, &RealtimeQueryConfig{},
 		&InspectionTemplate{}, &InspectionTemplateNode{}, &TemplateNodeConfig{},
 		&Workflow{}, &WorkflowStep{},
+		&InspectionPoint{},
 		&TaskPlan{}, &InspectionTask{}, &InspectionTaskNode{}, &TaskNodeResult{},
 		&Attachment{}, &Defect{}, &AuditLog{}, &OutboxEvent{},
 	)
