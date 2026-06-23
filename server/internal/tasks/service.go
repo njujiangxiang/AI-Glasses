@@ -40,13 +40,110 @@ func (s *Service) GlassesList(userID uint64, teamIDs []uint64, limit int) ([]dat
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
-	statuses := []string{StatusPending, StatusAssigned, StatusInProgress, StatusOverdue}
-	visibility := s.db.Where("assignee_type = ? AND assignee_id = ?", "user", userID).Or("executor_id = ?", userID)
+	visibility := s.visibleQuery(userID, "")
 	if len(teamIDs) > 0 {
 		visibility = visibility.Or("assignee_type = ? AND assignee_id IN ? AND executor_id IS NULL", "team", teamIDs)
 	}
 	var tasks []database.InspectionTask
-	return tasks, s.db.Where("status IN ?", statuses).Where(visibility).Order("due_at asc, id asc").Limit(limit).Find(&tasks).Error
+	return tasks, visibility.Order("due_at asc, id asc").Limit(limit).Find(&tasks).Error
+}
+
+// GlassesPage 分页查询指定眼镜用户可见的任务，支持文档接口中的状态过滤。
+func (s *Service) visibleQuery(userID uint64, status string) *gorm.DB {
+	statuses := []string{StatusPending, StatusAssigned, StatusInProgress, StatusOverdue}
+	if status != "" {
+		statuses = []string{status}
+	}
+	visibility := s.db.Where("assignee_type = ? AND assignee_id = ?", "user", userID).Or("executor_id = ?", userID).Or("assignee_type = ? AND executor_id IS NULL", "team")
+	return s.db.Where("status IN ?", statuses).Where(visibility)
+}
+
+func (s *Service) GlassesPage(userID uint64, status string, page, pageSize int) ([]database.InspectionTask, int64, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 || pageSize > 500 {
+		pageSize = 50
+	}
+	query := s.visibleQuery(userID, status)
+	var total int64
+	if err := query.Model(&database.InspectionTask{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var tasks []database.InspectionTask
+	err := query.Order("due_at asc, id asc").Limit(pageSize).Offset((page - 1) * pageSize).Find(&tasks).Error
+	return tasks, total, err
+}
+
+// CurrentNode 查询指定任务当前应执行的节点，优先返回待执行节点。
+func (s *Service) CurrentNode(taskID, userID uint64) (database.InspectionTaskNode, error) {
+	if err := s.EnsureAccessible(taskID, userID); err != nil {
+		return database.InspectionTaskNode{}, err
+	}
+	var node database.InspectionTaskNode
+	if err := s.db.Where("task_id = ? AND status = ?", taskID, NodePending).Order("sort_order asc, id asc").First(&node).Error; err == nil {
+		return node, nil
+	} else if err != gorm.ErrRecordNotFound {
+		return database.InspectionTaskNode{}, err
+	}
+	if err := s.db.Where("task_id = ?", taskID).Order("sort_order asc, id asc").First(&node).Error; err != nil {
+		return database.InspectionTaskNode{}, err
+	}
+	return node, nil
+}
+
+// EnsureAccessible 校验任务是否对当前眼镜用户可见。
+func (s *Service) EnsureAccessible(taskID, userID uint64) error {
+	var task database.InspectionTask
+	if err := s.db.First(&task, taskID).Error; err != nil {
+		return err
+	}
+	if !ownsTask(task, userID) && !(task.AssigneeType == "team" && task.ExecutorID == nil) {
+		return httperr.New(httperr.TaskNotAssigned, "task is not assigned to user")
+	}
+	return nil
+}
+
+// AcceptNodeProgress 校验节点进度上报。当前版本不持久化节点内临时进度。
+func (s *Service) AcceptNodeProgress(taskID, nodeID, userID uint64, progress float64) error {
+	if progress < 0 || progress > 1 {
+		return httperr.New(httperr.ValidationFailed, "progress must be between 0 and 1")
+	}
+	if err := s.EnsureAccessible(taskID, userID); err != nil {
+		return err
+	}
+	var count int64
+	if err := s.db.Model(&database.InspectionTaskNode{}).Where("task_id = ? AND id = ?", taskID, nodeID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count == 0 {
+		return httperr.New(httperr.ResourceNotFound, "task node not found")
+	}
+	return nil
+}
+
+// SkipNode 将当前用户可执行任务中的节点标记为跳过。
+func (s *Service) SkipNode(taskID, nodeID, userID uint64, reason string) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var task database.InspectionTask
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&task, taskID).Error; err != nil {
+			return err
+		}
+		if !ownsTask(task, userID) {
+			return httperr.New(httperr.TaskNotAssigned, "task is not assigned to user")
+		}
+		if err := Ensure(CanSubmitNode(task.Status)); err != nil {
+			return err
+		}
+		var node database.InspectionTaskNode
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("task_id = ? AND id = ?", taskID, nodeID).First(&node).Error; err != nil {
+			return err
+		}
+		if node.Status != NodePending {
+			return httperr.New(httperr.TaskStateConflict, "node cannot be skipped from current status")
+		}
+		return tx.Model(&node).Update("status", NodeSkipped).Error
+	})
 }
 
 // Detail 查询任务详情，包括节点、节点结果、附件和关联缺陷。

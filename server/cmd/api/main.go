@@ -13,6 +13,7 @@ import (
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/devices"
 	"aiglasses/server/internal/events"
+	"aiglasses/server/internal/glass_api"
 	"aiglasses/server/internal/httpapi"
 	"aiglasses/server/internal/organizations"
 	"aiglasses/server/internal/plans"
@@ -40,6 +41,8 @@ func main() {
 		log.Fatal(err)
 	}
 	authSvc := auth.NewService(db, cfg.JWTSecret, cfg.AccessTokenTTL)
+	defectSvc := defects.NewService(db)
+	taskSvc := tasks.NewService(db, redisClient)
 	attachmentSvc, err := attachments.NewService(db, cfg)
 	if err != nil {
 		log.Fatal(err)
@@ -49,16 +52,17 @@ func main() {
 		authSvc,
 		attachmentSvc,
 		businessCodeSvc,
-		defects.NewService(db),
+		defectSvc,
 		devices.NewService(db),
 		organizations.NewService(db),
 		plans.NewService(db),
-		tasks.NewService(db, redisClient),
+		taskSvc,
 		templates.NewService(db),
 		users.NewService(db),
 		scheduler,
 	)
 	r := gin.Default()
 	handler.Register(r)
+	glass_api.NewHandler(authSvc, taskSvc, defectSvc).Register(r)
 	log.Fatal(r.Run(cfg.HTTPAddr))
 }
