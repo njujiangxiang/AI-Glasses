@@ -5,12 +5,13 @@ access_token_ttl: "30m"
 refresh_token_ttl: "720h"
 redis_addr: "192.168.31.176:6379"
 redis_password: "aiglasses"
-rabbitmq_url: "amqp://aiglasses:aiglasses@127.0.0.1:5672/"
-s3_endpoint: "127.0.0.1:9000"
-s3_access_key: "minioadmin"
-s3_secret_key: "minioadmin"
-s3_bucket: "aiglasses-evidence"
-s3_use_ssl: false
+# rabbitmq_url: "amqp://aiglasses:aiglasses@127.0.0.1:5672/"
+# s3_endpoint: "127.0.0.1:9000"
+# s3_access_key: "minioadmin"
+# s3_secret_key: "minioadmin"
+# s3_bucket: "aiglasses-evidence"
+# s3_use_ssl: false
 scheduler_lookback: "24h"
 required_photo_max_bytes: 10485760
 audio_max_bytes: 31457280
+

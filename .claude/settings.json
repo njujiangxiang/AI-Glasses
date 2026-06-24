@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tasklist)",
+      "Bash(start \"AI Glasses Backend\" cmd /k server.exe)",
+      "Bash(findstr server.exe)",
+      "Bash(timeout 3 server.exe)",
+      "Bash(./server.exe)",
+      "Bash(timeout 5 bash -c 'sleep 2 && netstat -ano | findstr :8080')",
+      "Bash(go build *)",
+      "Bash(npx vue-tsc *)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill //F //PID 22388 //PID 24532 //PID 24180 //PID 25656)",
+      "Bash(echo \"Backend PID: $!\")",
+      "Bash(curl -s http://127.0.0.1:8080/healthz)",
+      "Bash(npx vite *)",
+      "Bash(echo \"Frontend PID: $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5180/)",
+      "Bash(curl -s -o /dev/null -w \"Frontend: HTTP %{http_code}\\\\n\" http://127.0.0.1:5180/)",
+      "Bash(timeout 5)",
+      "Bash(findstr \"5173\")",
+      "Bash(ipconfig)",
+      "Bash(findstr /C:\"IPv4\" /C:\"适配器\")",
+      "Bash(netsh advfirewall *)",
+      "Bash(curl -I http://192.168.31.106:5173/)",
+      "Bash(netsh wlan *)",
+      "Bash(npm run *)",
+      "Bash(taskkill /F /IM api.exe)",
+      "Bash(taskkill /F /IM go.exe)",
+      "Bash(taskkill //F //IM api.exe)",
+      "Bash(taskkill //F //IM go.exe)",
+      "Bash(taskkill /PID 30040 /F)",
+      "Bash(taskkill //PID 30040 //F)",
+      "Bash(./api.exe)",
+      "Bash(taskkill //PID 17184 //F)",
+      "Bash(taskkill //F //PID 29972)",
+      "Bash(curl -s -X POST http://localhost:8080/api/admin/auth/login -H 'Content-Type: application/json' -d '{\"username\":\"admin\",\"password\":\"admin\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/admin/inspection-points -H 'Content-Type: application/json' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJzY29wZSI6ImFkbWluIiwianRpIjoiOWNiNDYxZjAtMmYwNi00OWI1LWFiMDAtODhlNjE2MDFjMGVjIiwiZXhwIjoxNzgyMTE0OTY2LCJpYXQiOjE3ODIxMTMxNjZ9.gxofkBujcKUhIDniMlGxwnswIdnKyLaiSvPVC2Tovm8' -d '{\"name\":\"测试点位\",\"equipment_name\":\"测试设备\",\"location\":\"测试位置\",\"area\":\"A区\",\"substation\":\"城东变电站\",\"description\":\"测试说明\"}')",
+      "Bash(python -m json.tool)",
+      "Bash(git -C d:/project/AI-Glasses status --short)"
+    ]
+  }
+}

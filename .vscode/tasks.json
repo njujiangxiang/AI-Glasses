@@ -30,7 +30,7 @@
     {
       "label": "启动前端",
       "type": "shell",
-      "command": "node node_modules/.bin/vite --host 0.0.0.0 --port 5180",
+      "command": "node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 5180",
       "options": {
         "cwd": "${workspaceFolder}/admin"
       },

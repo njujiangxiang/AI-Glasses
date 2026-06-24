@@ -13,6 +13,7 @@ import (
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/devices"
 	"aiglasses/server/internal/events"
+	"aiglasses/server/internal/glass_api"
 	"aiglasses/server/internal/httpapi"
 	"aiglasses/server/internal/nodes"
 	"aiglasses/server/internal/organizations"
@@ -37,12 +38,17 @@ func main() {
 	if err := database.AutoMigrate(db); err != nil {
 		log.Fatal(err)
 	}
-	redisClient := redis.NewClient(&redis.Options{Addr: cfg.RedisAddr, Password: cfg.RedisPassword})
+	var redisClient *redis.Client
+	if cfg.RedisAddr != "" {
+		redisClient = redis.NewClient(&redis.Options{Addr: cfg.RedisAddr, Password: cfg.RedisPassword})
+	}
 	businessCodeSvc, err := businesscodes.NewService(db, redisClient)
 	if err != nil {
 		log.Fatal(err)
 	}
 	authSvc := auth.NewService(db, cfg.JWTSecret, cfg.AccessTokenTTL)
+	defectSvc := defects.NewService(db)
+	taskSvc := tasks.NewService(db, redisClient)
 	attachmentSvc, err := attachments.NewService(db, cfg)
 	if err != nil {
 		log.Fatal(err)
@@ -52,13 +58,13 @@ func main() {
 		authSvc,
 		attachmentSvc,
 		businessCodeSvc,
-		defects.NewService(db),
+		defectSvc,
 		devices.NewService(db),
 		nodes.NewService(db),
 		organizations.NewService(db),
 		plans.NewService(db),
 		points.NewService(db),
-		tasks.NewService(db, redisClient),
+		taskSvc,
 		templates.NewService(db),
 		users.NewService(db),
 		workflows.NewService(db),
@@ -66,5 +72,6 @@ func main() {
 	)
 	r := gin.Default()
 	handler.Register(r)
+	glass_api.NewHandler(authSvc, taskSvc, defectSvc).Register(r)
 	log.Fatal(r.Run(cfg.HTTPAddr))
 }

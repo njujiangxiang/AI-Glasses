@@ -243,7 +243,10 @@ func (s *Service) GenerateDaily(ctx context.Context, code string, currentUserOrg
 		ttl = redisTTLSeconds
 	}
 	maxSeq := int64(math.Pow10(cfg.SeqPadding)) - 1
-	result, err := s.redis.Eval(ctx, incrScript, []string{key}, ttl, maxSeq).Int64()
+	if s.redis == nil {
+		return "", httperr.New(httperr.InternalError, "业务编码流水号服务未配置，生成编号暂不可用")
+	}
+	result, err := s.redis.Eval(ctx, incrScript, []string{key}, redisTTLSeconds, maxSeq).Int64()
 	if err != nil {
 		return "", httperr.New(httperr.InternalError, "业务编码流水号服务不可用，请检查 Redis")
 	}
