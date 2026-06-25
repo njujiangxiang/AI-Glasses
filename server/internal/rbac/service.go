@@ -32,11 +32,11 @@ func (s *Service) CanViewMonitor(userID uint64) error {
 		}
 		return err
 	}
-	if user.RoleID == 0 {
+	if user.Role == 0 {
 		return httperr.New(httperr.AuthForbidden, "无权查看实时监控")
 	}
 	var role database.Role
-	if err := s.db.Where("id = ? AND status = ?", user.RoleID, "active").First(&role).Error; err != nil {
+	if err := s.db.Where("id = ? AND status = ?", user.Role, "active").First(&role).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return httperr.New(httperr.AuthForbidden, "无权查看实时监控")
 		}

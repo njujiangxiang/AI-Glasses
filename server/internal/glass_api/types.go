@@ -136,7 +136,7 @@ func toTaskInfo(task database.InspectionTask, progress float64) taskInfo {
 		SubstationName: task.PointName,
 		InspectArea:    task.EquipmentName,
 		Status:         apiStatus(task.Status),
-		ScheduledAt:    formatTime(task.ScheduledAt),
+		ScheduledAt:    formatTimePtr(task.ScheduledAt),
 		DueAt:          formatTime(task.DueAt),
 		StartedAt:      formatTimePtr(task.StartedAt),
 		SubmittedAt:    formatTimePtr(task.SubmittedAt),

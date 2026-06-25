@@ -135,18 +135,12 @@ func (s *Service) Create(input CreateInput) (database.InspectionTemplateNode, er
 		return database.InspectionTemplateNode{}, httperr.New(httperr.TaskStateConflict, "min_photos must be non-negative")
 	}
 
-	isMandatory := input.IsMandatory
-	if isMandatory == "" {
-		isMandatory = "1"
-	}
-	isRequired := input.IsRequired
-	if isRequired == "" {
-		isRequired = "1"
-	}
+	isMandatory := input.IsMandatory == "1" || (input.IsMandatory == "" && true)
+	isRequired := input.IsRequired == "1" || (input.IsRequired == "" && true)
 	requireLiveCapture := input.RequireLiveCapture || input.MinPhotos > 0
 
 	node := database.InspectionTemplateNode{
-		TemplateID:         nil, // 新创建的节点未分配
+		TemplateID:         0, // 新创建的节点未分配
 		SortOrder:          0,
 		Name:               input.Name,
 		Description:        input.Description,
@@ -181,14 +175,8 @@ func (s *Service) Update(id uint64, input UpdateInput) (database.InspectionTempl
 		return database.InspectionTemplateNode{}, httperr.New(httperr.TaskStateConflict, "invalid node type")
 	}
 
-	isMandatory := input.IsMandatory
-	if isMandatory == "" {
-		isMandatory = "1"
-	}
-	isRequired := input.IsRequired
-	if isRequired == "" {
-		isRequired = "1"
-	}
+	isMandatory := input.IsMandatory == "1" || (input.IsMandatory == "" && true)
+	isRequired := input.IsRequired == "1" || (input.IsRequired == "" && true)
 	requireLiveCapture := input.RequireLiveCapture || input.MinPhotos > 0
 
 	node.Name = input.Name

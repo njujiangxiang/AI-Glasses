@@ -71,7 +71,17 @@
       <el-row :gutter="16">
         <el-col :span="12">
           <el-form-item label="点位名称">
-            <el-input v-model="form.point_name" placeholder="巡检点位名称" />
+            <el-select v-model="form.point_name" placeholder="选择巡检点位" filterable clearable
+                       style="width: 100%" @change="onPointChange">
+              <el-option v-for="p in pointOptions" :key="p.id" :label="p.name" :value="p.name">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span>{{ p.name }}</span>
+                  <span style="color: #999; font-size: 12px">
+                    {{ p.area }}{{ p.substation ? ' · ' + p.substation : '' }}
+                  </span>
+                </div>
+              </el-option>
+            </el-select>
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -234,6 +244,7 @@ type NodeResult = {
 
 type TemplateOption = { id: number; name: string }
 type UserOption = { id: number; username: string; name: string; display_name: string }
+type PointOption = { id: number; name: string; equipment_name: string; location: string; area: string; substation: string }
 
 const items = ref<Task[]>([])
 const total = ref(0)
@@ -245,6 +256,7 @@ const filters = reactive({ keyword: '', status: '', template_id: undefined as nu
 const templateOptions = ref<TemplateOption[]>([])
 const userOptions = ref<UserOption[]>([])
 const userMap = ref<Record<number, string>>({})
+const pointOptions = ref<PointOption[]>([])
 
 const form = reactive({
   template_id: undefined as number | undefined,
@@ -330,6 +342,18 @@ async function loadUsers() {
   userMap.value = Object.fromEntries(users.map(u => [u.id, u.display_name || u.name || u.username]))
 }
 
+async function loadPoints() {
+  pointOptions.value = await apiGet<PointOption[]>('/api/admin/inspection-points/all')
+}
+
+function onPointChange(pointName: string) {
+  const point = pointOptions.value.find(p => p.name === pointName)
+  if (point) {
+    form.equipment_name = point.equipment_name || form.equipment_name
+    form.inspect_area = point.area || form.inspect_area
+  }
+}
+
 function openCreate() {
   Object.assign(form, {
     template_id: undefined, task_name: '', point_name: '', equipment_name: '',
@@ -337,6 +361,7 @@ function openCreate() {
     due_at: '', glasses_sn: '', assign_user: ''
   })
   loadTemplates()
+  loadPoints()
   dialogVisible.value = true
 }
 
@@ -384,5 +409,5 @@ async function removeTask(row: Task) {
   await load()
 }
 
-onMounted(() => { load(); loadTemplates(); loadUsers() })
+onMounted(() => { load(); loadTemplates(); loadUsers(); loadPoints() })
 </script>

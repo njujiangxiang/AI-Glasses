@@ -14,11 +14,13 @@ import (
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/devices"
 	"aiglasses/server/internal/events"
+	"aiglasses/server/internal/monitoring"
 	"aiglasses/server/internal/nodes"
 	"aiglasses/server/internal/organizations"
 	"aiglasses/server/internal/plans"
 	"aiglasses/server/internal/points"
 	"aiglasses/server/internal/platform/httperr"
+	"aiglasses/server/internal/rbac"
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
 	"aiglasses/server/internal/users"
@@ -41,6 +43,8 @@ type Handler struct {
 	users         *users.Service
 	workflows     *workflows.Service
 	scheduler     *events.Scheduler
+	rbac          *rbac.Service
+	monitoringHub *monitoring.Hub
 }
 
 // NewHandler 创建 HTTP 处理器集合，并注入所有业务服务。
@@ -270,7 +274,14 @@ func (h *Handler) generateBusinessCode(c *gin.Context) {
 		httperr.Respond(c, err)
 		return
 	}
-	code, err := h.businessCodes.GenerateDaily(c.Request.Context(), body.Code)
+	// 从当前用户获取组织编码
+	userID := auth.UserID(c)
+	user, err := h.users.Get(userID)
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	code, err := h.businessCodes.GenerateDaily(c.Request.Context(), body.Code, user.OrgCode)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
@@ -658,12 +669,19 @@ func (h *Handler) registerDevice(c *gin.Context) {
 	var body struct {
 		SerialNo string `json:"serial_no"`
 		Name     string `json:"name"`
+		OrgCode  string `json:"org_code"`
+		Status   string `json:"status"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	result, err := h.devices.Register(body.SerialNo, body.Name)
+	result, err := h.devices.Register(devices.RegisterInput{
+		SerialNo: body.SerialNo,
+		Name:     body.Name,
+		OrgCode:  body.OrgCode,
+		Status:   body.Status,
+	})
 	if err != nil {
 		httperr.Respond(c, err)
 		return

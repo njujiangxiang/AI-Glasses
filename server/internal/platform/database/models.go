@@ -51,6 +51,10 @@ type BusinessCode struct {
 	SeqPadding   int       `gorm:"not null;comment:'流水号位数，例如4表示0001'" json:"seq_padding"`
 	Separator    string    `gorm:"size:8;not null;default:'';comment:'分隔符，例如-，不使用时为空'" json:"separator"`
 	UseSeparator bool      `gorm:"not null;default:false;comment:'是否在代码、日期、流水号之间使用分隔符'" json:"use_separator"`
+	UseDate      *bool     `gorm:"not null;default:true;comment:'是否按日生成流水号'" json:"use_date"`
+	UseOrgCode   bool      `gorm:"not null;default:false;comment:'是否使用组织编码'" json:"use_org_code"`
+	OrgSource    string    `gorm:"size:32;not null;default:'fixed';comment:'组织编码来源：fixed/current'" json:"org_source"`
+	OrgCode      string    `gorm:"size:64;not null;default:'';comment:'组织机构编码'" json:"org_code"`
 	Status       string    `gorm:"size:32;not null;default:'active';comment:'编码状态：active启用，disabled停用'" json:"status"`
 	CreatedAt    time.Time `gorm:"comment:'创建时间'" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"comment:'更新时间'" json:"updated_at"`
@@ -59,6 +63,7 @@ type BusinessCode struct {
 type Role struct {
 	ID        uint64    `gorm:"primaryKey" json:"id"`
 	Name      string    `gorm:"size:64;uniqueIndex;not null" json:"name"`
+	Status    string    `gorm:"size:32;not null;default:'active'" json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -66,6 +71,8 @@ type Role struct {
 type Permission struct {
 	ID        uint64    `gorm:"primaryKey" json:"id"`
 	Code      string    `gorm:"size:128;uniqueIndex;not null" json:"code"`
+	Perms     string    `gorm:"size:128;not null;default:''" json:"perms"`
+	Status    string    `gorm:"size:32;not null;default:'active'" json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -96,6 +103,7 @@ type Device struct {
 	ID          uint64     `gorm:"primaryKey;comment:'设备ID，系统内部主键'" json:"id"`
 	SerialNo    string     `gorm:"size:128;uniqueIndex;not null;comment:'智能眼镜设备序列号，系统内唯一'" json:"serial_no"`
 	Name        string     `gorm:"size:128;not null;default:'';comment:'设备名称或备注名称'" json:"name"`
+	OrgCode     string     `gorm:"size:64;index;not null;default:'';comment:'所属组织编码'" json:"org_code"`
 	Status      string     `gorm:"size:32;index:idx_devices_status_bound_user_id,priority:1;not null;comment:'设备状态：pending待绑定，active启用，revoked撤销，lost_disabled丢失禁用'" json:"status"`
 	BoundUserID *uint64    `gorm:"index:idx_devices_status_bound_user_id,priority:2;comment:'当前绑定用户ID，关联users.id'" json:"bound_user_id"`
 	BoundAt     *time.Time `gorm:"comment:'绑定时间'" json:"bound_at"`
@@ -326,8 +334,8 @@ type InspectionTaskNode struct {
 	Status         string     `gorm:"size:32;index;not null;comment:'节点状态：pending待提交，completed已完成，abnormal异常'" json:"status"`
 	NodesConfigID  string     `gorm:"size:32;comment:'节点配置ID，关联template_nodes_config'" json:"nodes_config_id"`
 	TaskTypeCode   string     `gorm:"size:30;comment:'任务类型编码：text/read/check/photo/video/audio'" json:"task_type_code"`
-	IsMandatory    string     `gorm:"size:1;comment:'是否强制执行：1是，0否'" json:"is_mandatory"`
-	IsRequired     string     `gorm:"size:1;comment:'是否必做节点：1是，0否'" json:"is_required"`
+	IsMandatory    bool       `gorm:"not null;default:false;comment:'是否强制执行'" json:"is_mandatory"`
+	IsRequired     bool       `gorm:"not null;default:false;comment:'是否必做节点'" json:"is_required"`
 	AlgorithmID    string     `gorm:"size:32;comment:'绑定AI算法ID'" json:"algorithm_id"`
 	QueryID        string     `gorm:"size:32;comment:'绑定实时查询接口ID'" json:"query_id"`
 	ActualExecTime *time.Time `gorm:"comment:'实际执行时间'" json:"actual_exec_time"`

@@ -236,11 +236,9 @@ func (s *Service) GenerateDaily(ctx context.Context, code string, currentUserOrg
 		}
 	}
 	key := redisKeyWithOrgCode(cfg, finalOrgCode, now)
-	ttl := 0
 	if useDateValue(cfg.UseDate) {
 		goFmt := goDateFormats[cfg.DateFormat]
 		date = now.Format(goFmt)
-		ttl = redisTTLSeconds
 	}
 	maxSeq := int64(math.Pow10(cfg.SeqPadding)) - 1
 	if s.redis == nil {

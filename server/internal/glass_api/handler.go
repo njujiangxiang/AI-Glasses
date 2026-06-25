@@ -91,7 +91,7 @@ func (h *Handler) taskCards(c *gin.Context) {
 			SubstationName: item.PointName,
 			InspectArea:    item.EquipmentName,
 			Status:         apiStatus(item.Status),
-			ScheduledAt:    formatTime(item.ScheduledAt),
+			ScheduledAt:    formatTimePtr(item.ScheduledAt),
 			DueAt:          formatTime(item.DueAt),
 			Progress:       progressOf(nodes),
 		})
@@ -130,7 +130,7 @@ func (h *Handler) myTasks(c *gin.Context) {
 			PlanType:            planType(item),
 			SubstationName:      item.PointName,
 			Status:              apiStatus(item.Status),
-			ScheduledAt:         formatTime(item.ScheduledAt),
+			ScheduledAt:         formatTimePtr(item.ScheduledAt),
 			Progress:            progressOf(nodes),
 			UnfinishedNodeCount: unfinished,
 			DefectCount:         len(defects),
@@ -230,7 +230,7 @@ func (h *Handler) submitNodeResult(c *gin.Context) {
 		return
 	}
 	abnormal := body.IsAbnormal == "1"
-	result, err := h.tasks.SubmitNode(taskID, nodeID, auth.UserID(c), body.IdempotencyKey, tasks.NodeResultInput{TextNote: combineText(body), AttachmentIDs: attachments, Abnormal: abnormal})
+	result, err := h.tasks.SubmitNode(taskID, nodeID, auth.UserID(c), body.IdempotencyKey, tasks.NodeResultInput{TextNote: combineText(body), AttachmentIDs: attachments, IsAbnormal: abnormal})
 	if err != nil {
 		httperr.Respond(c, err)
 		return
