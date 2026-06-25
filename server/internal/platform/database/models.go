@@ -46,6 +46,51 @@ type BusinessCode struct {
 	UpdatedAt    time.Time
 }
 
+type TaskTypeDict struct {
+	ID               uint64 `gorm:"primaryKey" json:"id"`
+	TypeCode         string `gorm:"size:64;uniqueIndex;not null" json:"type_code"`
+	TypeName         string `gorm:"size:128;not null" json:"type_name"`
+	TypeDesc         string `gorm:"size:512" json:"type_desc"`
+	SupportAlgorithm bool   `gorm:"not null;default:false" json:"support_algorithm"`
+	SupportQuery     bool   `gorm:"not null;default:false" json:"support_query"`
+	SupportMandatory bool   `gorm:"not null;default:false" json:"support_mandatory"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+type AlgorithmConfig struct {
+	ID           uint64 `gorm:"primaryKey" json:"id"`
+	Name         string `gorm:"size:128;not null" json:"name"`
+	ServiceURL   string `gorm:"size:255" json:"service_url"`
+	InputParams  string `gorm:"type:text" json:"input_params"`
+	OutputParams string `gorm:"type:text" json:"output_params"`
+	IsEnable     bool   `gorm:"index;not null;default:true" json:"is_enable"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type RealtimeQueryConfig struct {
+	ID             uint64 `gorm:"primaryKey" json:"id"`
+	Name           string `gorm:"size:128;not null" json:"name"`
+	APIURL         string `gorm:"size:255" json:"api_url"`
+	RequestParams  string `gorm:"type:text" json:"request_params"`
+	ResponseParams string `gorm:"type:text" json:"response_params"`
+	IsEnable       bool   `gorm:"index;not null;default:true" json:"is_enable"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type TemplateNodeConfig struct {
+	ID             uint64 `gorm:"primaryKey" json:"id"`
+	TemplateNodeID uint64 `gorm:"index;not null" json:"template_node_id"`
+	ConfigCode     string `gorm:"size:64;not null" json:"config_code"`
+	ConfigName     string `gorm:"size:128;not null" json:"config_name"`
+	ConfigValue    string `gorm:"size:255" json:"config_value"`
+	IsDefault      bool   `gorm:"not null;default:false" json:"is_default"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
 type Role struct {
 	ID        uint64 `gorm:"primaryKey" json:"id"`
 	Name      string `gorm:"size:64;uniqueIndex;not null" json:"name"`
@@ -119,6 +164,12 @@ type InspectionTemplate struct {
 	Description     string `gorm:"size:512" json:"description"`
 	ApplicableRoles string `gorm:"size:255" json:"applicable_roles"`
 	Enabled         bool   `gorm:"index;not null" json:"enabled"`
+	Type            string `gorm:"size:50;not null;default:''" json:"type"`
+	Scene           string `gorm:"size:100;not null;default:''" json:"scene"`
+	Version         string `gorm:"size:20;not null;default:'v1'" json:"version"`
+	IsEnable        bool   `gorm:"not null;default:true" json:"is_enable"`
+	Creator         string `gorm:"size:50;not null;default:''" json:"creator"`
+	Remark          string `gorm:"size:255" json:"remark"`
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }
@@ -134,6 +185,15 @@ type InspectionTemplateNode struct {
 	RequireText        bool   `gorm:"not null" json:"require_text"`
 	AllowAbnormal      bool   `gorm:"not null" json:"allow_abnormal"`
 	RequireLiveCapture bool   `gorm:"not null" json:"require_live_capture"`
+	NodeDesc           string `gorm:"size:512;not null;default:''" json:"node_desc"`
+	NodesConfigID      string `gorm:"size:32" json:"nodes_config_id"`
+	TaskTypeID         string `gorm:"size:32" json:"task_type_id"`
+	IsMandatory        bool   `gorm:"not null;default:false" json:"is_mandatory"`
+	IsRequired         bool   `gorm:"not null;default:false" json:"is_required"`
+	AlgorithmID        string `gorm:"size:32" json:"algorithm_id"`
+	QueryID            string `gorm:"size:32" json:"query_id"`
+	TimeoutSecond      int    `json:"timeout_second"`
+	Remark             string `gorm:"size:128" json:"remark"`
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }

@@ -135,12 +135,12 @@ func (h *Handler) glassesLogin(c *gin.Context) {
 		return
 	}
 	deviceID := body.DeviceID
-	token, user, err := h.auth.Login(body.Username, body.Password, auth.ScopeGlasses, &deviceID)
+	pair, user, err := h.auth.LoginWithRefresh(body.Username, body.Password, deviceID)
 	if err != nil {
 		httperr.Respond(c, err)
 		return
 	}
-	httperr.OK(c, gin.H{"access_token": token, "user": user, "device_id": deviceID})
+	httperr.OK(c, gin.H{"access_token": pair.AccessToken, "refresh_token": pair.RefreshToken, "token_type": "Bearer", "expires_in": pair.ExpiresIn, "refresh_expires_in": pair.RefreshExpiresIn, "user": user, "device_id": deviceID})
 }
 
 // listBusinessCodes 查询业务编码配置列表。

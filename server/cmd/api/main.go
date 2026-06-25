@@ -40,7 +40,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	authSvc := auth.NewService(db, cfg.JWTSecret, cfg.AccessTokenTTL)
+	authSvc := auth.NewServiceWithRefresh(db, cfg.JWTSecret, cfg.AccessTokenTTL, cfg.RefreshTokenTTL)
 	defectSvc := defects.NewService(db)
 	taskSvc := tasks.NewService(db, redisClient)
 	attachmentSvc, err := attachments.NewService(db, cfg)
@@ -63,6 +63,6 @@ func main() {
 	)
 	r := gin.Default()
 	handler.Register(r)
-	glass_api.NewHandler(authSvc, taskSvc, defectSvc).Register(r)
+	glass_api.NewHandlerWithRuntime(authSvc, taskSvc, defectSvc, db, cfg).Register(r)
 	log.Fatal(r.Run(cfg.HTTPAddr))
 }

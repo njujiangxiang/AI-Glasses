@@ -5,17 +5,21 @@ import (
 	"net/http"
 
 	"aiglasses/server/internal/auth"
+	"aiglasses/server/internal/config"
 	"aiglasses/server/internal/defects"
 	"aiglasses/server/internal/platform/database"
 	"aiglasses/server/internal/platform/httperr"
 	"aiglasses/server/internal/tasks"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type Handler struct {
 	auth    *auth.Service
 	tasks   *tasks.Service
 	defects *defects.Service
+	db      *gorm.DB
+	cfg     config.Config
 }
 
 // NewHandler 创建 AR 眼镜端 v1 文档兼容接口处理器。
@@ -23,10 +27,30 @@ func NewHandler(authSvc *auth.Service, taskSvc *tasks.Service, defectSvc *defect
 	return &Handler{auth: authSvc, tasks: taskSvc, defects: defectSvc}
 }
 
+// NewHandlerWithRuntime 创建包含数据库与配置能力的 AR 眼镜端 v1 接口处理器。
+func NewHandlerWithRuntime(authSvc *auth.Service, taskSvc *tasks.Service, defectSvc *defects.Service, db *gorm.DB, cfg config.Config) *Handler {
+	return &Handler{auth: authSvc, tasks: taskSvc, defects: defectSvc, db: db, cfg: cfg}
+}
+
 // Register 挂载模块五接口。所有接口均要求 glasses scope Bearer token。
 func (h *Handler) Register(r *gin.Engine) {
 	v1 := r.Group("/api/v1")
-	group := v1.Group("/tasks", auth.Middleware(h.auth, auth.ScopeGlasses))
+	v1.POST("/auth/refresh", h.refreshToken)
+	v1.POST("/devices/register", h.registerDevice)
+
+	v1Auth := v1.Group("", auth.Middleware(h.auth, auth.ScopeGlasses))
+	v1Auth.POST("/auth/logout", h.logout)
+	v1Auth.GET("/auth/userinfo", h.userInfo)
+	v1Auth.POST("/devices/status/report", h.reportDeviceStatus)
+	v1Auth.POST("/defects", h.createDefect)
+	v1Auth.POST("/attachments/upload", h.uploadAttachment)
+	v1Auth.POST("/attachments/upload/batch", h.uploadAttachmentBatch)
+	v1Auth.GET("/attachments/:attachment_id", h.attachmentDetail)
+	v1Auth.POST("/realtime/query", h.realtimeQuery)
+	v1Auth.POST("/algorithm/invoke", h.invokeAlgorithm)
+	v1Auth.GET("/dicts/task-types", h.taskTypes)
+
+	group := v1Auth.Group("/tasks")
 	group.GET("/cards", h.taskCards)
 	group.GET("/my", h.myTasks)
 	group.GET("/:task_id", h.taskDetail)

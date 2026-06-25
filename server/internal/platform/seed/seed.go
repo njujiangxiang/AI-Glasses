@@ -101,6 +101,44 @@ func Run(db *gorm.DB) error {
 		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "serial_no"}}, DoUpdates: clause.AssignmentColumns([]string{"name", "status", "bound_user_id", "bound_at"})}).Create(&device).Error; err != nil {
 			return err
 		}
+		if err := seedARSupportData(tx); err != nil {
+			return err
+		}
 		return nil
 	})
+}
+
+func seedARSupportData(tx *gorm.DB) error {
+	taskTypes := []database.TaskTypeDict{
+		{TypeCode: "check", TypeName: "检查确认", TypeDesc: "确认设备状态或选项", SupportMandatory: true},
+		{TypeCode: "read", TypeName: "读数记录", TypeDesc: "读取仪表或设备数值", SupportAlgorithm: true, SupportQuery: true, SupportMandatory: true},
+		{TypeCode: "photo", TypeName: "拍照留证", TypeDesc: "拍摄现场照片", SupportAlgorithm: true, SupportMandatory: true},
+		{TypeCode: "text", TypeName: "文本记录", TypeDesc: "填写文本备注"},
+		{TypeCode: "defect_report", TypeName: "缺陷上报", TypeDesc: "眼镜端主动上报缺陷"},
+		{TypeCode: "realtime_query", TypeName: "实时查询", TypeDesc: "调用实时数据查询配置", SupportQuery: true},
+	}
+	for _, item := range taskTypes {
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "type_code"}}, DoUpdates: clause.AssignmentColumns([]string{"type_name", "type_desc", "support_algorithm", "support_query", "support_mandatory"})}).Create(&item).Error; err != nil {
+			return err
+		}
+	}
+	algorithms := []database.AlgorithmConfig{
+		{Name: "表计读数识别Mock", ServiceURL: "mock://meter-reading", InputParams: `{"attachment_ids":"array"}`, OutputParams: `{"value":"12.34","confidence":0.98}`, IsEnable: true},
+		{Name: "图像异常检测Mock", ServiceURL: "mock://image-anomaly", InputParams: `{"attachment_ids":"array"}`, OutputParams: `{"is_abnormal":"0","confidence":0.98}`, IsEnable: true},
+	}
+	for _, item := range algorithms {
+		if err := tx.Where("name = ?", item.Name).Assign(item).FirstOrCreate(&item).Error; err != nil {
+			return err
+		}
+	}
+	queries := []database.RealtimeQueryConfig{
+		{Name: "设备状态查询Mock", APIURL: "mock://equipment-status", RequestParams: `{"task_id":"string","node_id":"string"}`, ResponseParams: `{"status":"normal","temperature":"36.5℃"}`, IsEnable: true},
+		{Name: "环境状态查询Mock", APIURL: "mock://environment", RequestParams: `{"area":"string"}`, ResponseParams: `{"humidity":"45%","wind":"normal"}`, IsEnable: true},
+	}
+	for _, item := range queries {
+		if err := tx.Where("name = ?", item.Name).Assign(item).FirstOrCreate(&item).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
