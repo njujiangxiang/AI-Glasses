@@ -176,11 +176,11 @@ type InspectionTemplate struct {
 	Description     string    `gorm:"size:512;not null;default:'';comment:'模板说明'" json:"description"`
 	ApplicableRoles string    `gorm:"size:255;not null;default:'';comment:'适用角色，使用逗号或文本记录角色范围'" json:"applicable_roles"`
 	Enabled         bool      `gorm:"type:tinyint(1);index;not null;default:0;comment:'是否启用模板'" json:"enabled"`
-	Type            string    `gorm:"size:50;comment:'业务类型：设备巡检/缺陷复查/安全交底/保电特巡'" json:"type"`
-	Scene           string    `gorm:"size:100;comment:'适用业务场景：变电巡视/配电巡检/输电线路'" json:"scene"`
-	Version         string    `gorm:"size:20;comment:'版本号'" json:"version"`
-	IsEnable        bool      `gorm:"type:tinyint(1);comment:'是否启用（兼容字段）'" json:"is_enable"`
-	Creator         string    `gorm:"size:50;comment:'创建人'" json:"creator"`
+	Type            string    `gorm:"size:50;not null;default:'';comment:'业务类型：设备巡检/缺陷复查/安全交底/保电特巡'" json:"type"`
+	Scene           string    `gorm:"size:100;not null;default:'';comment:'适用业务场景：变电巡视/配电巡检/输电线路'" json:"scene"`
+	Version         string    `gorm:"size:20;not null;default:'v1';comment:'版本号'" json:"version"`
+	IsEnable        bool      `gorm:"type:tinyint(1);not null;default:true;comment:'是否启用（兼容字段）'" json:"is_enable"`
+	Creator         string    `gorm:"size:50;not null;default:'';comment:'创建人'" json:"creator"`
 	Remark          string    `gorm:"size:255;comment:'备注'" json:"remark"`
 	CreatedAt       time.Time `gorm:"comment:'创建时间'" json:"created_at"`
 	UpdatedAt       time.Time `gorm:"comment:'更新时间'" json:"updated_at"`
@@ -188,8 +188,8 @@ type InspectionTemplate struct {
 
 type InspectionTemplateNode struct {
 	ID                 uint64    `gorm:"primaryKey;comment:'模板节点ID，系统内部主键'" json:"id"`
-	TemplateID         *uint64   `gorm:"index;comment:'巡检模板ID，关联inspection_templates.id，为空表示节点库中未分配的节点'" json:"template_id"`
-	SortOrder          int       `gorm:"not null;default:0;comment:'节点排序号，数值越小越靠前'" json:"sort_order"`
+	TemplateID         uint64    `gorm:"uniqueIndex:idx_template_sort;index;not null;comment:'巡检模板ID，关联inspection_templates.id'" json:"template_id"`
+	SortOrder          int       `gorm:"uniqueIndex:idx_template_sort;not null;default:0;comment:'节点排序号，数值越小越靠前'" json:"sort_order"`
 	Name               string    `gorm:"size:128;not null;comment:'节点名称'" json:"name"`
 	Description        string    `gorm:"size:512;not null;default:'';comment:'节点说明'" json:"description"`
 	NodeDesc           string    `gorm:"size:512;not null;default:'';comment:'节点简短提示（AR眼镜端展示）'" json:"node_desc"`
@@ -200,8 +200,8 @@ type InspectionTemplateNode struct {
 	RequireLiveCapture bool      `gorm:"type:tinyint(1);not null;default:1;comment:'是否要求现场实时拍摄'" json:"require_live_capture"`
 	NodesConfigID      string    `gorm:"size:32;comment:'节点配置ID，关联template_nodes_config'" json:"nodes_config_id"`
 	TaskTypeID         string    `gorm:"size:32;comment:'任务类型ID，关联task_type_dict'" json:"task_type_id"`
-	IsMandatory        string    `gorm:"size:1;comment:'是否强制执行：1是，0否'" json:"is_mandatory"`
-	IsRequired         string    `gorm:"size:1;comment:'是否必做节点：1是，0否'" json:"is_required"`
+	IsMandatory        bool      `gorm:"not null;default:false;comment:'是否强制执行'" json:"is_mandatory"`
+	IsRequired         bool      `gorm:"not null;default:false;comment:'是否必做节点'" json:"is_required"`
 	AlgorithmID        string    `gorm:"size:32;comment:'绑定AI算法ID'" json:"algorithm_id"`
 	QueryID            string    `gorm:"size:32;comment:'绑定实时查询接口ID'" json:"query_id"`
 	TimeoutSecond      int       `gorm:"comment:'节点超时时间（秒）'" json:"timeout_second"`
