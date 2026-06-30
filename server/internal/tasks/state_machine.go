@@ -8,7 +8,6 @@ const (
 	StatusPending    = "pending"
 	StatusAssigned   = "assigned"
 	StatusInProgress = "in_progress"
-	StatusSubmitted  = "submitted"
 	StatusCompleted  = "completed"
 	StatusOverdue    = "overdue"
 	StatusCancelled  = "cancelled"
@@ -28,11 +27,8 @@ func CanStart(status string) bool { return status == StatusAssigned }
 // CanSubmitNode 判断当前任务状态是否允许提交节点结果。
 func CanSubmitNode(status string) bool { return status == StatusInProgress || status == StatusOverdue }
 
-// CanSubmitTask 判断当前任务状态是否允许提交整单巡检结果。
+// CanSubmitTask 判断当前任务状态是否允许提交整单巡检结果。提交后直接进入已完成状态。
 func CanSubmitTask(status string) bool { return status == StatusInProgress || status == StatusOverdue }
-
-// CanComplete 判断当前任务状态是否允许后台确认完成。
-func CanComplete(status string) bool { return status == StatusSubmitted }
 
 // CanCancel 判断当前任务状态是否允许后台取消。
 func CanCancel(status string) bool {

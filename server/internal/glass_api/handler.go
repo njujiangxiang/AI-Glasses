@@ -82,7 +82,7 @@ func (h *Handler) taskCards(c *gin.Context) {
 			cards[key] = card
 		}
 		card.TotalCount++
-		if item.Status != tasks.StatusSubmitted && item.Status != tasks.StatusCompleted && item.Status != tasks.StatusCancelled {
+		if item.Status != tasks.StatusCompleted && item.Status != tasks.StatusCancelled {
 			card.UndoneCount++
 		}
 		card.Tasks = append(card.Tasks, taskCardItem{
@@ -303,7 +303,7 @@ func (h *Handler) submitTask(c *gin.Context) {
 		httperr.Respond(c, err)
 		return
 	}
-	httperr.OK(c, gin.H{"status": apiStatus(task.Status), "submitted_at": formatTimePtr(task.SubmittedAt), "unfinished_mandatory_nodes": unfinishedNodes(nodes), "defect_summary": gin.H{"total": len(defects)}})
+	httperr.OK(c, gin.H{"status": apiStatus(task.Status), "completed_at": formatTimePtr(task.CompletedAt), "unfinished_mandatory_nodes": unfinishedNodes(nodes), "defect_summary": gin.H{"total": len(defects)}})
 }
 
 func (h *Handler) skipNode(c *gin.Context) {

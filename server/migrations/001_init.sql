@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS inspection_templates (
 
 CREATE TABLE IF NOT EXISTS inspection_template_nodes (
   id BIGINT UNSIGNED AUTO_INCREMENT COMMENT '模板节点ID，系统内部主键' PRIMARY KEY,
-  template_id BIGINT UNSIGNED NOT NULL COMMENT '巡检模板ID，关联inspection_templates.id',
+  template_id BIGINT UNSIGNED NULL COMMENT '巡检模板ID，关联inspection_templates.id，NULL表示未分配',
   sort_order INT NOT NULL COMMENT '节点排序号，数值越小越靠前',
   name VARCHAR(128) NOT NULL COMMENT '节点名称',
   description VARCHAR(512) NOT NULL DEFAULT '' COMMENT '节点说明',

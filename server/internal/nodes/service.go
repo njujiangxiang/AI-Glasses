@@ -55,6 +55,8 @@ type UpdateInput struct {
 	TimeoutSecond      int    `json:"timeout_second"`
 	Remark             string `json:"remark"`
 }
+// NOTE: UpdateInput 与 CreateInput 字段对齐，is_mandatory/is_required 保留为 string
+// 以匹配前端提交的 "1"/"0" 字符串格式（而非 JSON bool），避免 json.Unmarshal 报类型错误。
 
 type ListQuery struct {
 	Keyword    string
@@ -135,12 +137,12 @@ func (s *Service) Create(input CreateInput) (database.InspectionTemplateNode, er
 		return database.InspectionTemplateNode{}, httperr.New(httperr.TaskStateConflict, "min_photos must be non-negative")
 	}
 
-	isMandatory := input.IsMandatory == "1" || (input.IsMandatory == "" && true)
-	isRequired := input.IsRequired == "1" || (input.IsRequired == "" && true)
+	isMandatory := input.IsMandatory == "1"
+	isRequired := input.IsRequired == "1"
 	requireLiveCapture := input.RequireLiveCapture || input.MinPhotos > 0
 
 	node := database.InspectionTemplateNode{
-		TemplateID:         0, // 新创建的节点未分配
+		TemplateID:         nil, // 新创建的节点未分配
 		SortOrder:          0,
 		Name:               input.Name,
 		Description:        input.Description,
@@ -175,8 +177,8 @@ func (s *Service) Update(id uint64, input UpdateInput) (database.InspectionTempl
 		return database.InspectionTemplateNode{}, httperr.New(httperr.TaskStateConflict, "invalid node type")
 	}
 
-	isMandatory := input.IsMandatory == "1" || (input.IsMandatory == "" && true)
-	isRequired := input.IsRequired == "1" || (input.IsRequired == "" && true)
+	isMandatory := input.IsMandatory == "1"
+	isRequired := input.IsRequired == "1"
 	requireLiveCapture := input.RequireLiveCapture || input.MinPhotos > 0
 
 	node.Name = input.Name

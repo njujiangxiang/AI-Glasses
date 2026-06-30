@@ -1,0 +1,17 @@
+# Claude 本地配置
+.claude/
+
+# 前端构建产物
+admin/dist/
+
+# Go 编译二进制
+server/api
+server/api.exe
+server/api.exe~
+server/*.exe
+
+# 一次性修复工具（不入库）
+server/cmd/fix_empty_bool/
+server/cmd/fix_nodes/
+server/cmd/verify_nodes/
+server/internal/reports/

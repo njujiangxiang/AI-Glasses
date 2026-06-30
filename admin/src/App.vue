@@ -85,6 +85,7 @@ import {
   Calendar,
   Collection,
   DataAnalysis,
+  DataBoard,
   Document,
   Expand,
   Fold,
@@ -123,7 +124,8 @@ const menuItems: MenuItem[] = [
       { path: '/templates', title: '巡检模板', icon: Document },
       { path: '/plans', title: '任务计划', icon: Calendar },
       { path: '/tasks', title: '巡检任务', icon: Monitor },
-      { path: '/defects', title: '缺陷管理', icon: Bell }
+      { path: '/defects', title: '缺陷管理', icon: Bell },
+      { path: '/reports', title: '巡检报告', icon: DataBoard }
     ]
   },
   {

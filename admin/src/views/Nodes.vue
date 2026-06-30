@@ -27,8 +27,8 @@
       <el-table-column prop="min_photos" label="最少照片" width="100" align="center" />
       <el-table-column label="要求" width="160">
         <template #default="scope">
-          <el-tag v-if="scope.row.is_required === '1'" type="success" size="small">必做</el-tag>
-          <el-tag v-if="scope.row.is_mandatory === '1'" type="warning" size="small">强制</el-tag>
+          <el-tag v-if="scope.row.is_required === '1' || scope.row.is_required === true" type="success" size="small">必做</el-tag>
+          <el-tag v-if="scope.row.is_mandatory === '1' || scope.row.is_mandatory === true" type="warning" size="small">强制</el-tag>
         </template>
       </el-table-column>
       <el-table-column prop="timeout_second" label="超时(秒)" width="100" align="center" />
@@ -210,12 +210,17 @@ function openCreate() {
 
 function openEdit(row: Node) {
   editingId.value = row.id
+  // 后端模型把 is_required / is_mandatory 定义为 bool（tinyint(1)），API 返回 true/false；
+  // 但 UpdateInput 期望 string（"1"/"0"）。若直接把 bool 赋给表单，提交时 json.Unmarshal
+  // 会因为目标类型是 string 而报类型错误，被后端包装为 INTERNAL_ERROR。
+  // 这里统一把 bool 转成 "1"/"0"，保持与新增时的字符串格式一致。
+  const toStr = (v: unknown) => (v === true || v === '1' || v === 1 ? '1' : '0')
   Object.assign(form, {
     name: row.name, node_type: row.node_type, description: row.description,
     node_desc: row.node_desc, min_photos: row.min_photos,
     require_text: row.require_text, allow_abnormal: row.allow_abnormal,
     require_live_capture: row.require_live_capture,
-    is_required: row.is_required, is_mandatory: row.is_mandatory,
+    is_required: toStr(row.is_required), is_mandatory: toStr(row.is_mandatory),
     timeout_second: row.timeout_second, remark: row.remark
   })
   dialogVisible.value = true

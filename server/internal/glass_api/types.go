@@ -48,7 +48,6 @@ type taskInfo struct {
 	ExecutorUnit   string  `json:"executor_unit"`
 	GlassesSN      string  `json:"glasses_sn"`
 	StartedAt      string  `json:"started_at"`
-	SubmittedAt    string  `json:"submitted_at"`
 	Progress       float64 `json:"progress"`
 }
 
@@ -139,7 +138,6 @@ func toTaskInfo(task database.InspectionTask, progress float64) taskInfo {
 		ScheduledAt:    formatTimePtr(task.ScheduledAt),
 		DueAt:          formatTime(task.DueAt),
 		StartedAt:      formatTimePtr(task.StartedAt),
-		SubmittedAt:    formatTimePtr(task.SubmittedAt),
 		Progress:       progress,
 	}
 }
@@ -247,7 +245,7 @@ func apiStatus(status string) string {
 		return "pending"
 	case tasks.StatusInProgress, tasks.StatusOverdue:
 		return "executing"
-	case tasks.StatusSubmitted, tasks.StatusCompleted:
+	case tasks.StatusCompleted:
 		return "completed"
 	case tasks.StatusCancelled:
 		return "cancelled"
@@ -261,7 +259,7 @@ func internalStatus(status string) string {
 	case "executing":
 		return tasks.StatusInProgress
 	case "completed":
-		return tasks.StatusSubmitted
+		return tasks.StatusCompleted
 	default:
 		return status
 	}

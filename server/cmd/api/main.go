@@ -20,6 +20,7 @@ import (
 	"aiglasses/server/internal/plans"
 	"aiglasses/server/internal/points"
 	"aiglasses/server/internal/platform/database"
+	"aiglasses/server/internal/reports"
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
 	"aiglasses/server/internal/users"
@@ -54,6 +55,7 @@ func main() {
 		log.Fatal(err)
 	}
 	scheduler := events.NewScheduler(db, cfg)
+	reportSvc := reports.NewService(db)
 	handler := httpapi.NewHandler(
 		authSvc,
 		attachmentSvc,
@@ -64,6 +66,7 @@ func main() {
 		organizations.NewService(db),
 		plans.NewService(db),
 		points.NewService(db),
+		reportSvc,
 		taskSvc,
 		templates.NewService(db),
 		users.NewService(db),

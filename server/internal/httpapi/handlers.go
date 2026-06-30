@@ -21,6 +21,7 @@ import (
 	"aiglasses/server/internal/points"
 	"aiglasses/server/internal/platform/httperr"
 	"aiglasses/server/internal/rbac"
+	"aiglasses/server/internal/reports"
 	"aiglasses/server/internal/tasks"
 	"aiglasses/server/internal/templates"
 	"aiglasses/server/internal/users"
@@ -38,6 +39,7 @@ type Handler struct {
 	organizations *organizations.Service
 	plans         *plans.Service
 	points        *points.Service
+	reports       *reports.Service
 	tasks         *tasks.Service
 	templates     *templates.Service
 	users         *users.Service
@@ -48,8 +50,8 @@ type Handler struct {
 }
 
 // NewHandler 创建 HTTP 处理器集合，并注入所有业务服务。
-func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, businessCodeSvc *businesscodes.Service, defectSvc *defects.Service, deviceSvc *devices.Service, nodesSvc *nodes.Service, orgSvc *organizations.Service, planSvc *plans.Service, pointsSvc *points.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, workflowSvc *workflows.Service, scheduler *events.Scheduler) *Handler {
-	return &Handler{auth: authSvc, attachments: attachmentSvc, businessCodes: businessCodeSvc, defects: defectSvc, devices: deviceSvc, nodes: nodesSvc, organizations: orgSvc, plans: planSvc, points: pointsSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, workflows: workflowSvc, scheduler: scheduler}
+func NewHandler(authSvc *auth.Service, attachmentSvc *attachments.Service, businessCodeSvc *businesscodes.Service, defectSvc *defects.Service, deviceSvc *devices.Service, nodesSvc *nodes.Service, orgSvc *organizations.Service, planSvc *plans.Service, pointsSvc *points.Service, reportSvc *reports.Service, taskSvc *tasks.Service, templateSvc *templates.Service, userSvc *users.Service, workflowSvc *workflows.Service, scheduler *events.Scheduler) *Handler {
+	return &Handler{auth: authSvc, attachments: attachmentSvc, businessCodes: businessCodeSvc, defects: defectSvc, devices: deviceSvc, nodes: nodesSvc, organizations: orgSvc, plans: planSvc, points: pointsSvc, reports: reportSvc, tasks: taskSvc, templates: templateSvc, users: userSvc, workflows: workflowSvc, scheduler: scheduler}
 }
 
 // Register 注册公开接口、后台接口和眼镜端接口。
@@ -99,8 +101,11 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.GET("/tasks/:id", h.taskDetail)
 	admin.GET("/tasks/:id/results", h.taskResults)
 	admin.POST("/tasks/:id/cancel", h.cancelTask)
-	admin.POST("/tasks/:id/complete", h.completeTask)
 	admin.POST("/tasks/:id/delete", h.deleteTask)
+	// 巡检报告
+	admin.GET("/reports", h.listReports)
+	admin.GET("/reports/:id", h.reportDetail)
+	admin.GET("/reports/:id/pdf", h.reportPDF)
 	admin.GET("/defects", h.listDefects)
 	admin.POST("/defects/:id/confirm", h.confirmDefect)
 	admin.POST("/defects/:id/close", h.closeDefect)
@@ -572,7 +577,7 @@ func (h *Handler) submitTask(c *gin.Context) {
 		httperr.Respond(c, err)
 		return
 	}
-	httperr.OK(c, gin.H{"submitted": true})
+	httperr.OK(c, gin.H{"completed": true})
 }
 
 // cancelTask 处理后台取消任务。
@@ -582,15 +587,6 @@ func (h *Handler) cancelTask(c *gin.Context) {
 		return
 	}
 	httperr.OK(c, gin.H{"cancelled": true})
-}
-
-// completeTask 处理后台确认任务完成。
-func (h *Handler) completeTask(c *gin.Context) {
-	if err := h.tasks.Complete(idParam(c, "id")); err != nil {
-		httperr.Respond(c, err)
-		return
-	}
-	httperr.OK(c, gin.H{"completed": true})
 }
 
 // deleteTask 后台删除巡检任务及其关联数据。
@@ -1247,4 +1243,39 @@ func (h *Handler) deleteInspectionPoint(c *gin.Context) {
 		return
 	}
 	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// listReports 查询已完成任务的巡检报告列表。
+func (h *Handler) listReports(c *gin.Context) {
+	result, err := h.reports.List(reports.ListQuery{
+		Keyword:  c.Query("keyword"),
+		Page:     intQuery(c, "page", 1),
+		PageSize: intQuery(c, "page_size", 20),
+	})
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// reportDetail 查询单个巡检报告的详情。
+func (h *Handler) reportDetail(c *gin.Context) {
+	detail, err := h.reports.Detail(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, detail)
+}
+
+// reportPDF 生成并下载巡检报告 PDF 文件。
+func (h *Handler) reportPDF(c *gin.Context) {
+	data, fileName, err := h.reports.GeneratePDF(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	c.Header("Content-Disposition", `attachment; filename="`+fileName+`"`)
+	c.Data(http.StatusOK, "application/pdf", data)
 }

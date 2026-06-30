@@ -483,21 +483,8 @@ func (s *Service) SubmitTask(taskID, userID uint64) error {
 		if missing > 0 {
 			return httperr.New(httperr.NodeRequiredPhotoMissing, "required nodes are incomplete")
 		}
-		return tx.Model(&task).Updates(map[string]any{"status": StatusSubmitted, "submitted_at": now}).Error
+		return tx.Model(&task).Updates(map[string]any{"status": StatusCompleted, "completed_at": now}).Error
 	})
-}
-
-// Complete 由后台确认已提交任务完成。
-func (s *Service) Complete(taskID uint64) error {
-	now := time.Now().UTC()
-	result := s.db.Model(&database.InspectionTask{}).Where("id = ? AND status = ?", taskID, StatusSubmitted).Updates(map[string]any{"status": StatusCompleted, "completed_at": now})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return httperr.New(httperr.TaskStateConflict, "task cannot be completed")
-	}
-	return nil
 }
 
 // Cancel 由后台取消尚未完成的任务。
@@ -520,7 +507,7 @@ func (s *Service) AdminDelete(taskID uint64) error {
 		if err := tx.First(&task, taskID).Error; err != nil {
 			return err
 		}
-		// 仅允许删除未在执行中的任务（pending / assigned / submitted / completed / cancelled / overdue）
+		// 仅允许删除未在执行中的任务（pending / assigned / completed / cancelled / overdue）
 		if task.Status == StatusInProgress {
 			return httperr.New(httperr.TaskStateConflict, "cannot delete an in-progress task")
 		}

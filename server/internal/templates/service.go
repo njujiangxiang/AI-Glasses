@@ -137,10 +137,11 @@ func (s *Service) Create(input CreateInput) (database.InspectionTemplate, error)
 		// 方式2：内联创建节点（向后兼容）
 		for index, node := range input.Nodes {
 			requireLiveCapture := node.RequireLiveCapture || node.MinPhotos > 0
-			isMandatory := node.IsMandatory == "1" || (node.IsMandatory == "" && true)
-			isRequired := node.IsRequired == "1" || (node.IsRequired == "" && true)
+			isMandatory := node.IsMandatory == "1"
+			isRequired := node.IsRequired == "1"
+			tid := template.ID
 			model := database.InspectionTemplateNode{
-				TemplateID:         template.ID,
+				TemplateID:         &tid,
 				SortOrder:          index + 1,
 				Name:               node.Name,
 				Description:        node.Description,

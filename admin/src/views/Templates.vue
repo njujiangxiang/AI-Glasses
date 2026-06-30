@@ -51,10 +51,8 @@
         <el-col :span="12">
           <el-form-item label="类型" prop="type">
             <el-select v-model="form.type" placeholder="选择类型" clearable>
+              <el-option label="操作票执行" value="操作票执行" />
               <el-option label="设备巡检" value="设备巡检" />
-              <el-option label="缺陷复查" value="缺陷复查" />
-              <el-option label="安全交底" value="安全交底" />
-              <el-option label="保电特巡" value="保电特巡" />
             </el-select>
           </el-form-item>
         </el-col>
@@ -286,11 +284,10 @@ function onNodeSelect(nodes: TemplateNode[]) {
 
 function confirmAddNodes() {
   for (const node of tempSelectedNodes.value) {
-    if (!form.node_ids.includes(node.id)) {
-      form.node_ids.push(node.id)
-    }
+    form.node_ids.push(node.id)
   }
   showNodeSelector.value = false
+  tempSelectedNodes.value = []
 }
 
 function removeNode(index: number) {
