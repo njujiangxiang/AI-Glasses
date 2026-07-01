@@ -1,7 +1,7 @@
 <template>
   <el-card shadow="never">
     <div class="page-toolbar">
-      <span class="card-title">巡检任务</span>
+      <span class="card-title">任务管理</span>
       <div>
         <el-select v-model="filters.status" placeholder="状态" clearable style="width: 120px" @change="load">
           <el-option label="待领取" value="pending" />
@@ -21,7 +21,10 @@
       </div>
     </div>
     <el-table :data="items" stripe row-key="id" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column type="index" label="序号" width="70" align="center" :index="indexMethod" />
+      <el-table-column prop="task_code" label="任务编号" width="140">
+        <template #default="scope">{{ scope.row.task_code || '-' }}</template>
+      </el-table-column>
       <el-table-column prop="task_name" label="任务名称" min-width="150" />
       <el-table-column label="模板" width="120">
         <template #default="scope">{{ scope.row.template_name || '-' }}</template>
@@ -60,11 +63,20 @@
   <!-- 手动创建任务弹窗 -->
   <el-dialog v-model="dialogVisible" title="手动创建任务" width="640px">
     <el-form ref="formRef" :model="form" :rules="rules" label-width="110px">
-      <el-form-item label="巡检模板" prop="template_id">
-        <el-select v-model="form.template_id" placeholder="选择模板" filterable>
-          <el-option v-for="t in templateOptions" :key="t.id" :label="t.name" :value="t.id" />
-        </el-select>
-      </el-form-item>
+      <el-row :gutter="16">
+        <el-col :span="12">
+          <el-form-item label="任务编号" prop="task_code">
+            <el-input v-model="form.task_code" placeholder="请输入任务编号（NO：XXXXXX）" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="巡检模板" prop="template_id">
+            <el-select v-model="form.template_id" placeholder="选择模板" filterable style="width: 100%">
+              <el-option v-for="t in templateOptions" :key="t.id" :label="t.name" :value="t.id" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </el-row>
       <el-form-item label="任务名称" prop="task_name">
         <el-input v-model="form.task_name" placeholder="请输入任务名称" />
       </el-form-item>
@@ -123,6 +135,7 @@
     <div v-if="detailData">
       <el-descriptions :column="1" border>
         <el-descriptions-item label="任务名称">{{ detailData.task.task_name }}</el-descriptions-item>
+        <el-descriptions-item label="任务编号">{{ detailData.task.task_code || '-' }}</el-descriptions-item>
         <el-descriptions-item label="巡检点位">{{ detailData.task.point_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="设备名称">{{ detailData.task.equipment_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="作业区域">{{ detailData.task.inspect_area || '-' }}</el-descriptions-item>
@@ -207,6 +220,7 @@ import { apiGet, apiPost } from '@/api/client'
 type Task = {
   id: number
   plan_id: number | null
+  task_code: string
   template_id: number
   template_name: string
   task_name: string
@@ -253,12 +267,14 @@ const dialogVisible = ref(false)
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const filters = reactive({ keyword: '', status: '', template_id: undefined as number | undefined, page: 1, page_size: 20 })
+function indexMethod(rowIndex: number) { return (filters.page - 1) * filters.page_size + rowIndex + 1 }
 const templateOptions = ref<TemplateOption[]>([])
 const userOptions = ref<UserOption[]>([])
 const userMap = ref<Record<number, string>>({})
 const pointOptions = ref<PointOption[]>([])
 
 const form = reactive({
+  task_code: '',
   template_id: undefined as number | undefined,
   task_name: '',
   point_name: '',
@@ -272,6 +288,7 @@ const form = reactive({
 })
 
 const rules: FormRules = {
+  task_code: [{ required: true, message: '请输入任务编号', trigger: 'blur' }],
   template_id: [{ required: true, message: '请选择巡检模板', trigger: 'change' }],
   task_name: [{ required: true, message: '请输入任务名称', trigger: 'blur' }],
   assignee_id: [{ required: true, message: '请选择指派用户', trigger: 'change' }],
@@ -356,7 +373,7 @@ function onPointChange(pointName: string) {
 
 function openCreate() {
   Object.assign(form, {
-    template_id: undefined, task_name: '', point_name: '', equipment_name: '',
+    task_code: '', template_id: undefined, task_name: '', point_name: '', equipment_name: '',
     inspect_area: '', assignee_type: 'user', assignee_id: undefined,
     due_at: '', glasses_sn: '', assign_user: ''
   })

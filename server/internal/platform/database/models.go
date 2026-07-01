@@ -196,7 +196,7 @@ type InspectionTemplate struct {
 
 type InspectionTemplateNode struct {
 	ID                 uint64    `gorm:"primaryKey;comment:'模板节点ID，系统内部主键'" json:"id"`
-	TemplateID         uint64    `gorm:"uniqueIndex:idx_template_sort;index;not null;comment:'巡检模板ID，关联inspection_templates.id'" json:"template_id"`
+	TemplateID         *uint64   `gorm:"uniqueIndex:idx_template_sort;index;comment:'巡检模板ID，关联inspection_templates.id'" json:"template_id"`
 	SortOrder          int       `gorm:"uniqueIndex:idx_template_sort;not null;default:0;comment:'节点排序号，数值越小越靠前'" json:"sort_order"`
 	Name               string    `gorm:"size:128;not null;comment:'节点名称'" json:"name"`
 	Description        string    `gorm:"size:512;not null;default:'';comment:'节点说明'" json:"description"`
@@ -299,6 +299,7 @@ type TaskPlan struct {
 type InspectionTask struct {
 	ID             uint64     `gorm:"primaryKey;comment:'巡检任务ID，系统内部主键'" json:"id"`
 	PlanID         *uint64    `gorm:"index;uniqueIndex:idx_plan_scheduled,priority:1;comment:'任务计划ID，关联task_plans.id，手动创建时为空'" json:"plan_id"`
+	TaskCode       string     `gorm:"size:64;index;comment:'任务编号，手动创建时填写，计划生成时为空'" json:"task_code"`
 	TemplateID     uint64     `gorm:"index;not null;comment:'巡检模板ID，关联inspection_templates.id'" json:"template_id"`
 	ScheduledAt    *time.Time `gorm:"uniqueIndex:idx_plan_scheduled,priority:2;comment:'计划执行时间，手动创建时可为空'" json:"scheduled_at"`
 	DueAt          time.Time  `gorm:"index;not null;comment:'任务截止时间'" json:"due_at"`

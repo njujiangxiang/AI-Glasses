@@ -90,13 +90,11 @@ import {
   Expand,
   Fold,
   Key,
-  Location,
   MapLocation,
   Monitor,
   OfficeBuilding,
   Operation,
   Setting,
-  Tickets,
   User
 } from '@element-plus/icons-vue'
 import { clearToken, getCurrentUser } from '@/api/client'
@@ -114,20 +112,12 @@ type MenuItem = { path: string; title: string; icon: unknown; children?: MenuIte
 // menuItems 是侧栏菜单和可打开 Tab 的唯一来源。
 const menuItems: MenuItem[] = [
   { path: '/workbench', title: '工作台', icon: DataAnalysis },
-  {
-    path: '/inspection',
-    title: '巡检管理',
-    icon: Tickets,
-    children: [
-      { path: '/nodes', title: '节点管理', icon: Location },
-      { path: '/inspection-points', title: '巡检点位', icon: MapLocation },
-      { path: '/templates', title: '巡检模板', icon: Document },
-      { path: '/plans', title: '任务计划', icon: Calendar },
-      { path: '/tasks', title: '巡检任务', icon: Monitor },
-      { path: '/defects', title: '缺陷管理', icon: Bell },
-      { path: '/reports', title: '巡检报告', icon: DataBoard }
-    ]
-  },
+  { path: '/inspection-points', title: '点位管理', icon: MapLocation },
+  { path: '/templates', title: '任务模板', icon: Document },
+  { path: '/plans', title: '任务计划', icon: Calendar },
+  { path: '/tasks', title: '任务管理', icon: Monitor },
+  { path: '/defects', title: '缺陷管理', icon: Bell },
+  { path: '/reports', title: '巡检报告', icon: DataBoard },
   {
     path: '/master-data',
     title: '台账和主数据管理',

@@ -9,8 +9,7 @@
     </div>
 
     <el-table :data="devices" stripe v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
-      <el-table-column prop="serial_no" label="序列号" width="200" />
+      <el-table-column type="index" label="序号" width="70" align="center" :index="(i: number) => i + 1" />
       <el-table-column prop="name" label="名称" width="200" />
       <el-table-column label="组织机构" width="200">
         <template #default="scope">
@@ -64,15 +63,6 @@
             </el-input>
             <el-button v-if="form.bound_user_id" type="info" @click="clearUser">清除</el-button>
           </div>
-        </el-form-item>
-
-        <el-form-item label="序列号">
-          <el-input v-model="generatedSerial" disabled placeholder="自动生成" style="background: #f5f7fa;">
-            <template #prefix>
-              <el-icon><InfoFilled /></el-icon>
-            </template>
-          </el-input>
-          <div class="form-hint">序列号由"AI 眼镜设备编码"（GLASS）规则自动生成，用户不可修改</div>
         </el-form-item>
 
         <el-form-item label="状态" prop="status">
@@ -138,11 +128,10 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { apiGet, apiPost } from '@/api/client'
-import { InfoFilled, Search } from '@element-plus/icons-vue'
+import { Search } from '@element-plus/icons-vue'
 
 type Device = {
   id: number
-  serial_no: string
   name: string
   org_code: string
   status: string
@@ -173,7 +162,6 @@ const userLookupVisible = ref(false)
 const editingId = ref<number | null>(null)
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
-const generatedSerial = ref('')
 const selectedUserName = ref('')
 const userTotal = ref(0)
 const userQuery = reactive({
@@ -285,11 +273,8 @@ function statusType(status: string): string {
 // 打开新增弹窗
 function openCreate() {
   editingId.value = null
-  generatedSerial.value = ''
   selectedUserName.value = ''
   form.bound_user_id = undefined
-  // 生成序列号：调用业务编码生成接口
-  generateSerial()
   dialogVisible.value = true
 }
 
@@ -300,22 +285,8 @@ async function openEdit(row: Device) {
   form.org_code = row.org_code || ''
   form.bound_user_id = row.bound_user_id
   form.status = row.status
-  generatedSerial.value = row.serial_no
   selectedUserName.value = row.bound_user_name || ''
   dialogVisible.value = true
-}
-
-// 生成序列号（调用业务编码接口）
-async function generateSerial() {
-  try {
-    const result = await apiPost<{ code: string }>('/api/admin/business-codes/generate', {
-      code: 'GLASS'
-    })
-    generatedSerial.value = result.code
-  } catch (err: any) {
-    ElMessage.error('生成序列号失败: ' + (err?.message || '未知错误'))
-    generatedSerial.value = ''
-  }
 }
 
 // 打开用户选择弹窗
@@ -347,7 +318,6 @@ function resetForm() {
   form.org_code = ''
   form.bound_user_id = undefined
   form.status = 'pending'
-  generatedSerial.value = ''
   selectedUserName.value = ''
   editingId.value = null
 }
@@ -355,10 +325,6 @@ function resetForm() {
 // 提交表单
 async function submit() {
   await formRef.value?.validate()
-  if (!generatedSerial.value) {
-    ElMessage.error('序列号尚未生成，请检查业务编码配置')
-    return
-  }
   submitting.value = true
   try {
     if (editingId.value) {
@@ -371,7 +337,6 @@ async function submit() {
       ElMessage.success('设备已更新')
     } else {
       await apiPost('/api/admin/devices', {
-        serial_no: generatedSerial.value,
         name: form.name,
         org_code: form.org_code,
         status: form.status,

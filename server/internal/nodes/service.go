@@ -239,7 +239,7 @@ func (s *Service) UnassignFromTemplate(nodeIDs []uint64) error {
 // ListByTemplate 查询指定模板下的节点列表。
 func (s *Service) ListByTemplate(templateID uint64) ([]database.InspectionTemplateNode, error) {
 	var nodes []database.InspectionTemplateNode
-	err := s.db.Where("template_id = ?", templateID).Order("sort_order asc, id asc").Find(&nodes).Error
+	err := s.db.Where("template_id = ?", templateID).Order("sort_order asc, created_at asc, id asc").Find(&nodes).Error
 	return nodes, err
 }
 

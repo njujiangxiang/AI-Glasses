@@ -24,27 +24,31 @@ DELETE FROM role_permissions;
 -- 一级菜单
 INSERT IGNORE INTO permissions (id, pid, type, name, code, icon, path, component, sort, perms, visible, status, is_cache, created_at, updated_at) VALUES
 (1, 0, 'M', '工作台', 'workbench', 'DataAnalysis', '/workbench', '', 1, '', 1, 'active', 0, NOW(), NOW()),
-(2, 0, 'M', '巡检模板', 'templates', 'Document', '/templates', '', 2, '', 1, 'active', 0, NOW(), NOW()),
+(2, 0, 'M', '任务模板', 'templates', 'Document', '/templates', '', 2, '', 1, 'active', 0, NOW(), NOW()),
 (3, 0, 'M', '工作流管理', 'workflows', 'Operation', '/workflows', '', 3, '', 1, 'active', 0, NOW(), NOW()),
 (4, 0, 'M', '任务计划', 'plans', 'Calendar', '/plans', '', 4, '', 1, 'active', 0, NOW(), NOW()),
 (5, 0, 'M', '任务管理', 'tasks', 'Tickets', '/tasks', '', 5, '', 1, 'active', 0, NOW(), NOW()),
 (6, 0, 'M', '作业任务单', 'tasksheets', 'Document', '/tasksheets', '', 6, '', 1, 'active', 0, NOW(), NOW()),
 (7, 0, 'M', '缺陷管理', 'defects', 'Bell', '/defects', '', 7, '', 1, 'active', 0, NOW(), NOW()),
-(8, 0, 'M', '台账和主数据管理', 'master_data', 'Collection', '', '', 8, '', 1, 'active', 0, NOW(), NOW()),
-(9, 0, 'M', '系统管理', 'system', 'Setting', '', '', 99, '', 1, 'active', 0, NOW(), NOW());
+(8, 0, 'M', '点位管理', 'inspection_points', 'MapLocation', '/inspection-points', '', 8, '', 1, 'active', 0, NOW(), NOW()),
+(9, 0, 'M', '台账和主数据管理', 'master_data', 'Collection', '', '', 9, '', 1, 'active', 0, NOW(), NOW()),
+(10, 0, 'M', '巡检报告', 'reports', 'DataBoard', '/reports', '', 10, '', 1, 'active', 0, NOW(), NOW()),
+(99, 0, 'M', '系统管理', 'system', 'Setting', '', '', 99, '', 1, 'active', 0, NOW(), NOW());
+
+-- 注：原 ID 9（系统管理）已调整为 99，下方二级菜单的 pid 也对应更新。
 
 -- 二级菜单 - 台账和主数据管理
 INSERT IGNORE INTO permissions (id, pid, type, name, code, icon, path, component, sort, perms, visible, status, is_cache, created_at, updated_at) VALUES
-(81, 8, 'C', '设备管理', 'devices', 'Monitor', '/devices', '', 1, '', 1, 'active', 0, NOW(), NOW());
+(81, 9, 'C', '设备管理', 'devices', 'Monitor', '/devices', '', 1, '', 1, 'active', 0, NOW(), NOW());
 
 -- 二级菜单 - 系统管理
 INSERT IGNORE INTO permissions (id, pid, type, name, code, icon, path, component, sort, perms, visible, status, is_cache, created_at, updated_at) VALUES
-(91, 9, 'C', '组织管理', 'organizations', 'OfficeBuilding', '/organizations', '', 1, '', 1, 'active', 0, NOW(), NOW()),
-(92, 9, 'C', '用户管理', 'users', 'User', '/users', '', 2, '', 1, 'active', 0, NOW(), NOW()),
-(93, 9, 'C', '角色管理', 'roles', 'Lock', '/roles', '', 3, '', 1, 'active', 0, NOW(), NOW()),
-(94, 9, 'C', '菜单权限', 'menus', 'Setting', '/menus', '', 4, '', 1, 'active', 0, NOW(), NOW()),
-(95, 9, 'C', '业务编码配置', 'business_codes', 'Key', '/business-codes', '', 5, '', 1, 'active', 0, NOW(), NOW()),
-(96, 9, 'C', '实时监控', 'monitoring_logs', 'Monitor', '/monitoring/logs', '', 6, '', 1, 'active', 0, NOW(), NOW());
+(91, 99, 'C', '组织管理', 'organizations', 'OfficeBuilding', '/organizations', '', 1, '', 1, 'active', 0, NOW(), NOW()),
+(92, 99, 'C', '用户管理', 'users', 'User', '/users', '', 2, '', 1, 'active', 0, NOW(), NOW()),
+(93, 99, 'C', '角色管理', 'roles', 'Lock', '/roles', '', 3, '', 1, 'active', 0, NOW(), NOW()),
+(94, 99, 'C', '菜单权限', 'menus', 'Setting', '/menus', '', 4, '', 1, 'active', 0, NOW(), NOW()),
+(95, 99, 'C', '业务编码配置', 'business_codes', 'Key', '/business-codes', '', 5, '', 1, 'active', 0, NOW(), NOW()),
+(96, 99, 'C', '实时监控', 'monitoring_logs', 'Monitor', '/monitoring/logs', '', 6, '', 1, 'active', 0, NOW(), NOW());
 
 -- 按钮级权限 - 实时监控
 INSERT IGNORE INTO permissions (id, pid, type, name, code, icon, path, component, sort, perms, visible, status, is_cache, created_at, updated_at) VALUES

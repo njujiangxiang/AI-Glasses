@@ -312,6 +312,87 @@ func (s *Service) Delete(id uint64) error {
 	})
 }
 
+// Copy 复制模板及其所有节点和节点配置，新模板名称前缀增加"（复制）"。
+func (s *Service) Copy(id uint64) (database.InspectionTemplate, error) {
+	var template database.InspectionTemplate
+	if err := s.db.First(&template, id).Error; err != nil {
+		return database.InspectionTemplate{}, notFound(err, "template not found")
+	}
+
+	// 查询原模板的节点
+	var nodes []database.InspectionTemplateNode
+	if err := s.db.Where("template_id = ?", id).Order("sort_order asc, id asc").Find(&nodes).Error; err != nil {
+		return database.InspectionTemplate{}, err
+	}
+
+	newTemplate := database.InspectionTemplate{
+		Name:            "（复制）" + template.Name,
+		Description:     template.Description,
+		ApplicableRoles: template.ApplicableRoles,
+		Enabled:         false,
+		Type:            template.Type,
+		Scene:           template.Scene,
+		Version:         template.Version,
+		Remark:          template.Remark,
+	}
+
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&newTemplate).Error; err != nil {
+			return err
+		}
+
+		// 复制节点
+		for _, node := range nodes {
+			newNode := database.InspectionTemplateNode{
+				TemplateID:         &newTemplate.ID,
+				SortOrder:          node.SortOrder,
+				Name:               node.Name,
+				Description:        node.Description,
+				NodeDesc:           node.NodeDesc,
+				NodeType:           node.NodeType,
+				MinPhotos:          node.MinPhotos,
+				RequireText:        node.RequireText,
+				AllowAbnormal:      node.AllowAbnormal,
+				RequireLiveCapture: node.RequireLiveCapture,
+				NodesConfigID:      node.NodesConfigID,
+				TaskTypeID:         node.TaskTypeID,
+				IsMandatory:        node.IsMandatory,
+				IsRequired:         node.IsRequired,
+				AlgorithmID:        node.AlgorithmID,
+				QueryID:            node.QueryID,
+				TimeoutSecond:      node.TimeoutSecond,
+				Remark:             node.Remark,
+			}
+			if err := tx.Create(&newNode).Error; err != nil {
+				return err
+			}
+
+			// 复制节点配置
+			var configs []database.TemplateNodeConfig
+			if err := tx.Where("node_id = ?", node.ID).Find(&configs).Error; err != nil {
+				return err
+			}
+			for _, cfg := range configs {
+				newCfg := database.TemplateNodeConfig{
+					NodeID:      newNode.ID,
+					ConfigCode:  cfg.ConfigCode,
+					ConfigName:  cfg.ConfigName,
+					ConfigValue: cfg.ConfigValue,
+					ConfigType:  cfg.ConfigType,
+					Sort:        cfg.Sort,
+					IsDefault:   cfg.IsDefault,
+					Remark:      cfg.Remark,
+				}
+				if err := tx.Create(&newCfg).Error; err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	})
+	return newTemplate, err
+}
+
 // GetNodeCount 查询模板下的节点数量。
 func (s *Service) GetNodeCount(templateID uint64) (int64, error) {
 	var count int64

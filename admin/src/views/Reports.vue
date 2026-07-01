@@ -8,7 +8,7 @@
       </div>
     </div>
     <el-table :data="items" stripe row-key="id" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column type="index" label="序号" width="70" align="center" :index="indexMethod" />
       <el-table-column prop="task_name" label="任务名称" min-width="150" />
       <el-table-column prop="point_name" label="巡检点位" width="120" />
       <el-table-column prop="equipment_name" label="设备" width="120" />
@@ -238,6 +238,7 @@ const items = ref<ReportItem[]>([])
 const total = ref(0)
 const loading = ref(false)
 const filters = reactive({ keyword: '', page: 1, page_size: 20 })
+function indexMethod(rowIndex: number) { return (filters.page - 1) * filters.page_size + rowIndex + 1 }
 
 const detailVisible = ref(false)
 const detailData = ref<ReportDetail | null>(null)

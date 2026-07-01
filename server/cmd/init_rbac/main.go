@@ -43,7 +43,7 @@ func main() {
 	fmt.Println("✅ RBAC 权限数据初始化完成！")
 	fmt.Println("")
 	fmt.Println("说明:")
-	fmt.Println("1. 已创建 9 个一级菜单 + 子菜单")
+	fmt.Println("1. 已创建 11 个一级菜单 + 子菜单")
 	fmt.Println("2. 已创建 3 个默认角色: 超级管理员、普通用户、巡检人员")
 	fmt.Println("3. 超级管理员已获得所有菜单权限")
 	fmt.Println("4. admin 用户已设置为超级管理员")
@@ -60,25 +60,27 @@ func initMenus(db *gorm.DB) error {
 	menus := []database.Permission{
 		// 一级菜单
 		{ID: 1, Pid: 0, Type: "M", Name: "工作台", Code: "workbench", Icon: "DataAnalysis", Path: "/workbench", Sort: 1, Visible: true, Status: "active"},
-		{ID: 2, Pid: 0, Type: "M", Name: "巡检模板", Code: "templates", Icon: "Document", Path: "/templates", Sort: 2, Visible: true, Status: "active"},
+		{ID: 2, Pid: 0, Type: "M", Name: "任务模板", Code: "templates", Icon: "Document", Path: "/templates", Sort: 2, Visible: true, Status: "active"},
 		{ID: 3, Pid: 0, Type: "M", Name: "工作流管理", Code: "workflows", Icon: "Operation", Path: "/workflows", Sort: 3, Visible: true, Status: "active"},
 		{ID: 4, Pid: 0, Type: "M", Name: "任务计划", Code: "plans", Icon: "Calendar", Path: "/plans", Sort: 4, Visible: true, Status: "active"},
 		{ID: 5, Pid: 0, Type: "M", Name: "任务管理", Code: "tasks", Icon: "Tickets", Path: "/tasks", Sort: 5, Visible: true, Status: "active"},
 		{ID: 6, Pid: 0, Type: "M", Name: "作业任务单", Code: "tasksheets", Icon: "Document", Path: "/tasksheets", Sort: 6, Visible: true, Status: "active"},
 		{ID: 7, Pid: 0, Type: "M", Name: "缺陷管理", Code: "defects", Icon: "Bell", Path: "/defects", Sort: 7, Visible: true, Status: "active"},
-		{ID: 8, Pid: 0, Type: "M", Name: "台账和主数据管理", Code: "master_data", Icon: "Collection", Sort: 8, Visible: true, Status: "active"},
-		{ID: 9, Pid: 0, Type: "M", Name: "系统管理", Code: "system", Icon: "Setting", Sort: 99, Visible: true, Status: "active"},
+		{ID: 8, Pid: 0, Type: "M", Name: "点位管理", Code: "inspection_points", Icon: "MapLocation", Path: "/inspection-points", Sort: 8, Visible: true, Status: "active"},
+		{ID: 9, Pid: 0, Type: "M", Name: "台账和主数据管理", Code: "master_data", Icon: "Collection", Sort: 9, Visible: true, Status: "active"},
+		{ID: 10, Pid: 0, Type: "M", Name: "巡检报告", Code: "reports", Icon: "DataBoard", Path: "/reports", Sort: 10, Visible: true, Status: "active"},
+		{ID: 99, Pid: 0, Type: "M", Name: "系统管理", Code: "system", Icon: "Setting", Sort: 99, Visible: true, Status: "active"},
 
 		// 二级菜单 - 台账和主数据管理
-		{ID: 81, Pid: 8, Type: "C", Name: "设备管理", Code: "devices", Icon: "Monitor", Path: "/devices", Sort: 1, Visible: true, Status: "active"},
+		{ID: 81, Pid: 9, Type: "C", Name: "设备管理", Code: "devices", Icon: "Monitor", Path: "/devices", Sort: 1, Visible: true, Status: "active"},
 
 		// 二级菜单 - 系统管理
-		{ID: 91, Pid: 9, Type: "C", Name: "组织管理", Code: "organizations", Icon: "OfficeBuilding", Path: "/organizations", Sort: 1, Visible: true, Status: "active"},
-		{ID: 92, Pid: 9, Type: "C", Name: "用户管理", Code: "users", Icon: "User", Path: "/users", Sort: 2, Visible: true, Status: "active"},
-		{ID: 93, Pid: 9, Type: "C", Name: "角色管理", Code: "roles", Icon: "Lock", Path: "/roles", Sort: 3, Visible: true, Status: "active"},
-		{ID: 94, Pid: 9, Type: "C", Name: "菜单权限", Code: "menus", Icon: "Setting", Path: "/menus", Sort: 4, Visible: true, Status: "active"},
-		{ID: 95, Pid: 9, Type: "C", Name: "业务编码配置", Code: "business_codes", Icon: "Key", Path: "/business-codes", Sort: 5, Visible: true, Status: "active"},
-		{ID: 96, Pid: 9, Type: "C", Name: "实时监控", Code: "monitoring_logs", Icon: "Monitor", Path: "/monitoring/logs", Sort: 6, Visible: true, Status: "active"},
+		{ID: 91, Pid: 99, Type: "C", Name: "组织管理", Code: "organizations", Icon: "OfficeBuilding", Path: "/organizations", Sort: 1, Visible: true, Status: "active"},
+		{ID: 92, Pid: 99, Type: "C", Name: "用户管理", Code: "users", Icon: "User", Path: "/users", Sort: 2, Visible: true, Status: "active"},
+		{ID: 93, Pid: 99, Type: "C", Name: "角色管理", Code: "roles", Icon: "Lock", Path: "/roles", Sort: 3, Visible: true, Status: "active"},
+		{ID: 94, Pid: 99, Type: "C", Name: "菜单权限", Code: "menus", Icon: "Setting", Path: "/menus", Sort: 4, Visible: true, Status: "active"},
+		{ID: 95, Pid: 99, Type: "C", Name: "业务编码配置", Code: "business_codes", Icon: "Key", Path: "/business-codes", Sort: 5, Visible: true, Status: "active"},
+		{ID: 96, Pid: 99, Type: "C", Name: "实时监控", Code: "monitoring_logs", Icon: "Monitor", Path: "/monitoring/logs", Sort: 6, Visible: true, Status: "active"},
 
 		// 按钮级权限 - 实时监控
 		{ID: 961, Pid: 96, Type: "A", Name: "实时监控查看", Code: "monitor:view", Perms: "system:monitor:view", Sort: 1, Visible: true, Status: "active"},

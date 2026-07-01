@@ -16,6 +16,7 @@
       </div>
     </div>
     <el-table :data="users" stripe>
+      <el-table-column type="index" label="序号" width="70" align="center" :index="indexMethod" />
       <el-table-column label="头像" width="80">
         <template #default="scope">
           <el-avatar v-if="avatarBlobUrls[scope.row.id]" :src="avatarBlobUrls[scope.row.id]" />
@@ -167,6 +168,7 @@ const editingAvatarBlobUrl = ref('')
 const pendingAvatarFile = ref<File | null>(null) // 新增用户时暂存的头像文件
 const formRef = ref<FormInstance>()
 const filters = reactive({ keyword: '', org_code: '', status: '', page: 1, page_size: 20 })
+function indexMethod(rowIndex: number) { return (filters.page - 1) * filters.page_size + rowIndex + 1 }
 const form = reactive({ username: '', name: '', gender: 'unknown', birth_year: 0, birth_month: 0, id_card_no: '', org_code: '', status: 'active', role_id: 0 })
 const rules: FormRules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],

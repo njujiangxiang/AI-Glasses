@@ -1,7 +1,7 @@
 <template>
   <el-card shadow="never">
     <div class="page-toolbar">
-      <span class="card-title">巡检点位</span>
+      <span class="card-title">点位管理</span>
       <div>
         <el-input v-model="filters.keyword" placeholder="搜索点位" clearable style="width: 200px" @keyup.enter="load" />
         <el-button @click="load" style="margin-left: 8px">刷新</el-button>
@@ -9,7 +9,7 @@
       </div>
     </div>
     <el-table :data="items" stripe row-key="id" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column type="index" label="序号" width="70" align="center" :index="indexMethod" />
       <el-table-column prop="name" label="点位名称" min-width="150" />
       <el-table-column prop="equipment_name" label="关联设备" width="150" />
       <el-table-column prop="area" label="所属区域" width="120" />
@@ -100,6 +100,7 @@ const editingId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const filters = reactive({ keyword: '', page: 1, page_size: 20 })
+function indexMethod(rowIndex: number) { return (filters.page - 1) * filters.page_size + rowIndex + 1 }
 
 const form = reactive({
   name: '',

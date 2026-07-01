@@ -13,7 +13,7 @@
       </div>
     </div>
     <el-table :data="items" stripe row-key="id" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column type="index" label="序号" width="70" align="center" :index="indexMethod" />
       <el-table-column prop="name" label="计划名称" min-width="150" />
       <el-table-column label="模板" width="120">
         <template #default="scope">{{ templateMap[scope.row.template_id] || scope.row.template_id }}</template>
@@ -276,6 +276,7 @@ const editingId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const filters = reactive({ keyword: '', status: '', page: 1, page_size: 20 })
+function indexMethod(rowIndex: number) { return (filters.page - 1) * filters.page_size + rowIndex + 1 }
 const templateOptions = ref<TemplateOption[]>([])
 const templateMap = ref<Record<number, string>>({})
 const userOptions = ref<UserOption[]>([])

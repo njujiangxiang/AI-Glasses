@@ -86,6 +86,7 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/templates/:id/enable", h.enableTemplate)
 	admin.POST("/templates/:id/disable", h.disableTemplate)
 	admin.POST("/templates/:id/delete", h.deleteTemplate)
+	admin.POST("/templates/:id/copy", h.copyTemplate)
 	// 计划管理
 	admin.POST("/plans", h.createPlan)
 	admin.GET("/plans", h.listPlans)
@@ -111,6 +112,10 @@ func (h *Handler) Register(r *gin.Engine) {
 	admin.POST("/defects/:id/close", h.closeDefect)
 	admin.GET("/devices", h.listDevices)
 	admin.POST("/devices", h.registerDevice)
+	admin.POST("/devices/:id/update", h.updateDevice)
+	admin.POST("/devices/:id/delete", h.deleteDevice)
+	admin.POST("/devices/:id/enable", h.enableDevice)
+	admin.POST("/devices/:id/disable", h.disableDevice)
 	admin.POST("/devices/:id/revoke", h.revokeDevice)
 	admin.POST("/devices/:id/disable-lost", h.disableLostDevice)
 	admin.GET("/business-codes", h.listBusinessCodes)
@@ -383,6 +388,16 @@ func (h *Handler) deleteTemplate(c *gin.Context) {
 		return
 	}
 	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// copyTemplate 复制模板，新模板名称前缀增加"（复制）"，同步复制所有节点及节点配置。
+func (h *Handler) copyTemplate(c *gin.Context) {
+	result, err := h.templates.Copy(idParam(c, "id"))
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.Created(c, result)
 }
 
 // createPlan 创建巡检任务计划。
@@ -663,20 +678,27 @@ func (h *Handler) listDevices(c *gin.Context) {
 // registerDevice 处理后台登记新设备。
 func (h *Handler) registerDevice(c *gin.Context) {
 	var body struct {
-		SerialNo string `json:"serial_no"`
-		Name     string `json:"name"`
-		OrgCode  string `json:"org_code"`
-		Status   string `json:"status"`
+		SerialNo    string  `json:"serial_no"`
+		Name        string  `json:"name"`
+		OrgCode     string  `json:"org_code"`
+		Status      string  `json:"status"`
+		BoundUserID *uint64 `json:"bound_user_id"`
 	}
 	if err := c.ShouldBindJSON(&body); err != nil {
 		httperr.Respond(c, err)
 		return
 	}
+	// 序列号自动生成：若前端未传则使用时间戳。
+	serialNo := body.SerialNo
+	if serialNo == "" {
+		serialNo = "DEV-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	}
 	result, err := h.devices.Register(devices.RegisterInput{
-		SerialNo: body.SerialNo,
-		Name:     body.Name,
-		OrgCode:  body.OrgCode,
-		Status:   body.Status,
+		SerialNo:    serialNo,
+		Name:        body.Name,
+		OrgCode:     body.OrgCode,
+		Status:      body.Status,
+		BoundUserID: body.BoundUserID,
 	})
 	if err != nil {
 		httperr.Respond(c, err)
@@ -697,6 +719,58 @@ func (h *Handler) revokeDevice(c *gin.Context) {
 // disableLostDevice 处理后台将设备标记为丢失禁用。
 func (h *Handler) disableLostDevice(c *gin.Context) {
 	if err := h.devices.DisableLost(auth.UserID(c), idParam(c, "id"), "lost device"); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"disabled": true})
+}
+
+// updateDevice 处理后台编辑设备信息。
+func (h *Handler) updateDevice(c *gin.Context) {
+	var body struct {
+		Name        string  `json:"name"`
+		OrgCode     string  `json:"org_code"`
+		Status      string  `json:"status"`
+		BoundUserID *uint64 `json:"bound_user_id"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	result, err := h.devices.Update(idParam(c, "id"), devices.UpdateInput{
+		Name:        body.Name,
+		OrgCode:     body.OrgCode,
+		Status:      body.Status,
+		BoundUserID: body.BoundUserID,
+	})
+	if err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, result)
+}
+
+// deleteDevice 处理后台删除设备。
+func (h *Handler) deleteDevice(c *gin.Context) {
+	if err := h.devices.Delete(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"deleted": true})
+}
+
+// enableDevice 处理后台启用设备。
+func (h *Handler) enableDevice(c *gin.Context) {
+	if err := h.devices.Enable(idParam(c, "id")); err != nil {
+		httperr.Respond(c, err)
+		return
+	}
+	httperr.OK(c, gin.H{"enabled": true})
+}
+
+// disableDevice 处理后台停用设备。
+func (h *Handler) disableDevice(c *gin.Context) {
+	if err := h.devices.Disable(idParam(c, "id")); err != nil {
 		httperr.Respond(c, err)
 		return
 	}

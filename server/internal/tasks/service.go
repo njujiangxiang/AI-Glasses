@@ -20,6 +20,7 @@ const (
 
 type AdminCreateInput struct {
 	TemplateID    uint64     `json:"template_id"`
+	TaskCode      string     `json:"task_code"`
 	TaskName      string     `json:"task_name"`
 	PointName     string     `json:"point_name"`
 	EquipmentName string     `json:"equipment_name"`
@@ -94,6 +95,7 @@ func (s *Service) AdminCreate(input AdminCreateInput) (database.InspectionTask, 
 
 	task := database.InspectionTask{
 		PlanID:        nil, // 手动创建，无计划
+		TaskCode:      input.TaskCode,
 		TemplateID:    input.TemplateID,
 		ScheduledAt:   nil, // 手动创建，无计划时间
 		DueAt:         input.DueAt.UTC(),

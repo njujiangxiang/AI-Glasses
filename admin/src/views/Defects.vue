@@ -5,7 +5,7 @@
       <el-button @click="load">刷新</el-button>
     </div>
     <el-table :data="defects" stripe>
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column type="index" label="序号" width="70" align="center" :index="(i: number) => i + 1" />
       <el-table-column prop="status" label="状态" width="140" />
       <el-table-column prop="task_id" label="任务" width="100" />
       <el-table-column prop="node_id" label="节点" width="100" />

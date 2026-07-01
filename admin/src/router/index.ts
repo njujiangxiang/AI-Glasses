@@ -2,7 +2,6 @@
 // 标题；meta.public 用于让登录页脱离已登录后的管理端布局单独渲染。
 import { createRouter, createWebHistory } from 'vue-router'
 import Workbench from '@/views/Workbench.vue'
-import Nodes from '@/views/Nodes.vue'
 import InspectionPoints from '@/views/InspectionPoints.vue'
 import Templates from '@/views/Templates.vue'
 import Plans from '@/views/Plans.vue'
@@ -25,9 +24,8 @@ const router = createRouter({
     { path: '/', redirect: '/workbench' },
     { path: '/login', component: Login, meta: { title: '登录', public: true } },
     { path: '/workbench', component: Workbench, meta: { title: '工作台' } },
-    { path: '/nodes', component: Nodes, meta: { title: '节点管理' } },
-    { path: '/inspection-points', component: InspectionPoints, meta: { title: '巡检点位' } },
-    { path: '/templates', component: Templates, meta: { title: '巡检模板' } },
+    { path: '/inspection-points', component: InspectionPoints, meta: { title: '点位管理' } },
+    { path: '/templates', component: Templates, meta: { title: '任务模板' } },
     { path: '/plans', component: Plans, meta: { title: '任务计划' } },
     { path: '/tasks', component: Tasks, meta: { title: '任务管理' } },
     { path: '/reports', component: Reports, meta: { title: '巡检报告' } },

@@ -10,7 +10,7 @@
     <el-card shadow="never">
       <template #header><span class="card-title">常用功能</span></template>
       <el-space wrap>
-        <el-button type="primary" @click="$router.push('/templates')">新建巡检模板</el-button>
+        <el-button type="primary" @click="$router.push('/templates')">新建任务模板</el-button>
         <el-button @click="$router.push('/plans')">创建周期计划</el-button>
         <el-button @click="$router.push('/tasks')">查看任务进度</el-button>
         <el-button @click="$router.push('/defects')">处理异常缺陷</el-button>

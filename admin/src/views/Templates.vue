@@ -1,7 +1,7 @@
 <template>
   <el-card shadow="never">
     <div class="page-toolbar">
-      <span class="card-title">巡检模板</span>
+      <span class="card-title">任务模板</span>
       <div>
         <el-input v-model="filters.keyword" placeholder="搜索模板" clearable style="width: 200px" @keyup.enter="load" />
         <el-button @click="load" style="margin-left: 8px">刷新</el-button>
@@ -9,7 +9,7 @@
       </div>
     </div>
     <el-table :data="items" stripe row-key="id" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="80" />
+      <el-table-column type="index" label="序号" width="70" align="center" :index="indexMethod" />
       <el-table-column prop="name" label="模板名称" min-width="150" />
       <el-table-column prop="type" label="类型" width="120" />
       <el-table-column prop="scene" label="场景" width="120" />
@@ -25,10 +25,11 @@
           <el-tag :type="scope.row.enabled ? 'success' : 'info'">{{ scope.row.enabled ? '已启用' : '已停用' }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="280" fixed="right">
+      <el-table-column label="操作" width="340" fixed="right">
         <template #default="scope">
           <el-button link type="primary" @click="viewDetail(scope.row)">详情</el-button>
           <el-button link type="primary" @click="openEdit(scope.row)">编辑</el-button>
+          <el-button link type="primary" @click="copyTemplate(scope.row)">复制模板</el-button>
           <el-button link :type="scope.row.enabled ? 'warning' : 'success'" @click="toggleEnable(scope.row)">
             {{ scope.row.enabled ? '停用' : '启用' }}
           </el-button>
@@ -88,21 +89,28 @@
       <el-form-item label="已选节点">
         <div style="width: 100%">
           <div style="margin-bottom: 8px; display: flex; gap: 8px; align-items: center">
-            <el-button size="small" @click="showNodeSelector = true">添加节点</el-button>
-            <span style="color: #909399; font-size: 12px">已选择 {{ form.node_ids.length }} 个节点</span>
+            <el-button size="small" type="primary" @click="openNodeCreate">新增节点</el-button>
+            <span style="color: #909399; font-size: 12px">共 {{ selectedNodes.length }} 个节点，可拖拽排序</span>
           </div>
-          <el-table :data="selectedNodes" stripe size="small" max-height="200">
-            <el-table-column prop="sort_order" label="序号" width="60" />
-            <el-table-column prop="name" label="节点名称" />
-            <el-table-column prop="node_type" label="类型" width="80">
-              <template #default="scope">{{ nodeTypeLabel(scope.row.node_type) }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="80">
-              <template #default="scope">
-                <el-button link type="danger" size="small" @click="removeNode(scope.$index)">移除</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
+          <draggable
+            v-model="selectedNodes"
+            item-key="id"
+            handle=".drag-handle"
+            @end="onDragEnd"
+          >
+            <template #item="{ element, index }">
+              <div class="node-row" :class="{ 'dragging': dragIndex === index }">
+                <span class="drag-handle" :title="'拖拽排序'">☰</span>
+                <span class="node-index">{{ index + 1 }}</span>
+                <span class="node-name">{{ element.name }}</span>
+                <el-tag size="small">{{ nodeTypeLabel(element.node_type) }}</el-tag>
+                <span class="node-actions">
+                  <el-button link type="primary" size="small" @click="openNodeEdit(element)">编辑</el-button>
+                  <el-button link type="danger" size="small" @click="removeNode(index)">删除</el-button>
+                </span>
+              </div>
+            </template>
+          </draggable>
         </div>
       </el-form-item>
     </el-form>
@@ -112,35 +120,82 @@
     </template>
   </el-dialog>
 
-  <!-- 节点选择弹窗 -->
-  <el-dialog v-model="showNodeSelector" title="选择节点" width="600px" append-to-body>
-    <div style="margin-bottom: 8px; display: flex; gap: 8px">
-      <el-select v-model="nodeFilterType" placeholder="节点类型" clearable style="width: 140px" @change="loadUnassignedNodes">
-        <el-option label="文本" value="text" />
-        <el-option label="读取" value="read" />
-        <el-option label="检查" value="check" />
-        <el-option label="拍照" value="photo" />
-        <el-option label="录像" value="video" />
-        <el-option label="录音" value="audio" />
-      </el-select>
-      <el-button @click="loadUnassignedNodes">刷新</el-button>
-    </div>
-    <el-table :data="unassignedNodes" stripe size="small" max-height="360" @selection-change="onNodeSelect">
-      <el-table-column type="selection" width="40" />
-      <el-table-column prop="name" label="节点名称" />
-      <el-table-column prop="node_type" label="类型" width="80">
-        <template #default="scope">{{ nodeTypeLabel(scope.row.node_type) }}</template>
-      </el-table-column>
-      <el-table-column prop="min_photos" label="最少照片" width="80" align="center" />
-      <el-table-column label="必做" width="60" align="center">
-        <template #default="scope">
-          <el-tag v-if="scope.row.is_required === '1'" type="success" size="small">是</el-tag>
-        </template>
-      </el-table-column>
-    </el-table>
+  <!-- 节点新增/编辑弹窗 -->
+  <el-dialog v-model="nodeDialogVisible" :title="nodeEditingId ? '编辑节点' : '新增节点'" width="640px" append-to-body>
+    <el-form ref="nodeFormRef" :model="nodeForm" :rules="nodeRules" label-width="120px">
+      <el-form-item label="节点名称" prop="name">
+        <el-input v-model="nodeForm.name" placeholder="请输入节点名称" />
+      </el-form-item>
+      <el-form-item label="节点类型" prop="node_type">
+        <el-select v-model="nodeForm.node_type" placeholder="选择节点类型">
+          <el-option label="文本" value="text" />
+          <el-option label="读取" value="read" />
+          <el-option label="检查" value="check" />
+          <el-option label="拍照" value="photo" />
+          <el-option label="录像" value="video" />
+          <el-option label="录音" value="audio" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="节点说明" prop="description">
+        <el-input v-model="nodeForm.description" type="textarea" :rows="2" placeholder="节点详细说明" />
+      </el-form-item>
+      <el-form-item label="简短提示" prop="node_desc">
+        <el-input v-model="nodeForm.node_desc" placeholder="AR眼镜端展示的简短提示" />
+      </el-form-item>
+      <el-row :gutter="16">
+        <el-col :span="12">
+          <el-form-item label="最少照片数">
+            <el-input-number v-model="nodeForm.min_photos" :min="0" :max="10" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="超时时间(秒)">
+            <el-input-number v-model="nodeForm.timeout_second" :min="0" :max="3600" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row :gutter="16">
+        <el-col :span="8">
+          <el-form-item label="要求文本">
+            <el-switch v-model="nodeForm.require_text" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="允许异常">
+            <el-switch v-model="nodeForm.allow_abnormal" />
+          </el-form-item>
+        </el-col>
+        <el-col :span="8">
+          <el-form-item label="实时拍摄">
+            <el-switch v-model="nodeForm.require_live_capture" />
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-row :gutter="16">
+        <el-col :span="12">
+          <el-form-item label="是否必做">
+            <el-select v-model="nodeForm.is_required">
+              <el-option label="是" value="1" />
+              <el-option label="否" value="0" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+        <el-col :span="12">
+          <el-form-item label="是否强制">
+            <el-select v-model="nodeForm.is_mandatory">
+              <el-option label="是" value="1" />
+              <el-option label="否" value="0" />
+            </el-select>
+          </el-form-item>
+        </el-col>
+      </el-row>
+      <el-form-item label="备注">
+        <el-input v-model="nodeForm.remark" placeholder="备注信息" />
+      </el-form-item>
+    </el-form>
     <template #footer>
-      <el-button @click="showNodeSelector = false">取消</el-button>
-      <el-button type="primary" @click="confirmAddNodes">确定添加</el-button>
+      <el-button @click="nodeDialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="submitNode" :loading="nodeSubmitting">保存</el-button>
     </template>
   </el-dialog>
 
@@ -177,9 +232,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import draggable from 'vuedraggable'
 import { apiGet, apiPost } from '@/api/client'
 
 type Template = {
@@ -203,6 +259,14 @@ type TemplateNode = {
   min_photos: number
   is_required: string
   description: string
+  node_desc: string
+  require_text: boolean
+  allow_abnormal: boolean
+  require_live_capture: boolean
+  is_mandatory: string
+  timeout_second: number
+  remark: string
+  created_at?: string
 }
 
 const items = ref<Template[]>([])
@@ -213,6 +277,7 @@ const editingId = ref<number | null>(null)
 const formRef = ref<FormInstance>()
 const submitting = ref(false)
 const filters = reactive({ keyword: '', page: 1, page_size: 20 })
+function indexMethod(rowIndex: number) { return (filters.page - 1) * filters.page_size + rowIndex + 1 }
 const nodeCountMap = ref<Record<number, number>>({})
 
 const form = reactive({
@@ -231,20 +296,50 @@ const rules: FormRules = {
 }
 
 // 节点选择
-const showNodeSelector = ref(false)
-const unassignedNodes = ref<TemplateNode[]>([])
-const nodeFilterType = ref('')
-const tempSelectedNodes = ref<TemplateNode[]>([])
+const templateNodes = ref<TemplateNode[]>([])
+
+// 新增/编辑节点弹窗
+const nodeDialogVisible = ref(false)
+const nodeEditingId = ref<number | null>(null)
+const nodeFormRef = ref<FormInstance>()
+const nodeSubmitting = ref(false)
+const nodeForm = reactive({
+  name: '',
+  node_type: 'text',
+  description: '',
+  node_desc: '',
+  min_photos: 0,
+  require_text: false,
+  allow_abnormal: false,
+  require_live_capture: false,
+  is_required: '1',
+  is_mandatory: '1',
+  timeout_second: 0,
+  remark: ''
+})
+const nodeRules: FormRules = {
+  name: [{ required: true, message: '请输入节点名称', trigger: 'blur' }],
+  node_type: [{ required: true, message: '请选择节点类型', trigger: 'change' }]
+}
+
+// 拖拽排序
+const dragIndex = ref(-1)
 
 // 详情
 const detailVisible = ref(false)
 const detailData = ref<{ template: Template; nodes: TemplateNode[] } | null>(null)
 
-const selectedNodes = computed(() => {
-  return form.node_ids.map((id, index) => {
-    const node = unassignedNodes.value.find(n => n.id === id) || { id, name: `节点#${id}`, node_type: '', sort_order: index + 1 }
-    return { ...node, sort_order: index + 1 }
-  })
+const selectedNodes = computed({
+  get: () => {
+    return form.node_ids.map((id, index) => {
+      const node = templateNodes.value.find(n => n.id === id)
+                    || { id, name: `节点#${id}`, node_type: '', sort_order: index + 1 }
+      return { ...node, sort_order: index + 1 }
+    })
+  },
+  set: (newNodes: TemplateNode[]) => {
+    form.node_ids = newNodes.map(n => n.id)
+  }
 })
 
 function nodeTypeLabel(type: string) {
@@ -272,38 +367,84 @@ async function load() {
   }
 }
 
-async function loadUnassignedNodes() {
-  const params = new URLSearchParams()
-  if (nodeFilterType.value) params.set('node_type', nodeFilterType.value)
-  unassignedNodes.value = await apiGet<TemplateNode[]>(`/api/admin/nodes/unassigned?${params.toString()}`)
-}
-
-function onNodeSelect(nodes: TemplateNode[]) {
-  tempSelectedNodes.value = nodes
-}
-
-function confirmAddNodes() {
-  for (const node of tempSelectedNodes.value) {
-    form.node_ids.push(node.id)
-  }
-  showNodeSelector.value = false
-  tempSelectedNodes.value = []
-}
-
 function removeNode(index: number) {
   form.node_ids.splice(index, 1)
 }
 
+function onDragEnd() {
+  dragIndex.value = -1
+}
+
+// 新增节点
+function openNodeCreate() {
+  nodeEditingId.value = null
+  Object.assign(nodeForm, {
+    name: '', node_type: 'text', description: '', node_desc: '',
+    min_photos: 0, require_text: false, allow_abnormal: false,
+    require_live_capture: false, is_required: '1', is_mandatory: '1',
+    timeout_second: 0, remark: ''
+  })
+  nodeDialogVisible.value = true
+}
+
+// 编辑已有节点
+function openNodeEdit(node: TemplateNode) {
+  nodeEditingId.value = node.id
+  const toStr = (v: unknown) => (v === true || v === '1' || v === 1 ? '1' : '0')
+  Object.assign(nodeForm, {
+    name: node.name,
+    node_type: node.node_type,
+    description: node.description || '',
+    node_desc: node.node_desc || '',
+    min_photos: node.min_photos || 0,
+    require_text: node.require_text ?? false,
+    allow_abnormal: node.allow_abnormal ?? false,
+    require_live_capture: node.require_live_capture ?? false,
+    is_required: toStr(node.is_required),
+    is_mandatory: toStr(node.is_mandatory),
+    timeout_second: node.timeout_second || 0,
+    remark: node.remark || ''
+  })
+  nodeDialogVisible.value = true
+}
+
+// 保存节点（新增或编辑）
+async function submitNode() {
+  await nodeFormRef.value?.validate()
+  nodeSubmitting.value = true
+  try {
+    if (nodeEditingId.value) {
+      await apiPost(`/api/admin/nodes/${nodeEditingId.value}/update`, nodeForm)
+      // 更新本地节点数据
+      const idx = templateNodes.value.findIndex(n => n.id === nodeEditingId.value)
+      if (idx !== -1) {
+        templateNodes.value[idx] = { ...templateNodes.value[idx], ...nodeForm }
+      }
+      ElMessage.success('节点已更新')
+    } else {
+      const newNode = await apiPost<TemplateNode>('/api/admin/nodes', nodeForm)
+      // 将新节点添加到已选节点列表末尾
+      templateNodes.value.push(newNode)
+      form.node_ids.push(newNode.id)
+      ElMessage.success('节点已创建并添加')
+    }
+    nodeDialogVisible.value = false
+  } finally {
+    nodeSubmitting.value = false
+  }
+}
+
 function openCreate() {
   editingId.value = null
+  templateNodes.value = []
   Object.assign(form, { name: '', description: '', type: '', scene: '', version: '', applicable_roles: '', remark: '', node_ids: [] })
-  loadUnassignedNodes()
   dialogVisible.value = true
 }
 
 async function openEdit(row: Template) {
   editingId.value = row.id
   const detail = await apiGet<{ template: Template; nodes: TemplateNode[] }>(`/api/admin/templates/${row.id}`)
+  templateNodes.value = detail.nodes
   Object.assign(form, {
     name: detail.template.name,
     description: detail.template.description,
@@ -314,7 +455,6 @@ async function openEdit(row: Template) {
     remark: detail.template.remark,
     node_ids: detail.nodes.map(n => n.id)
   })
-  loadUnassignedNodes()
   dialogVisible.value = true
 }
 
@@ -358,7 +498,63 @@ async function remove(row: Template) {
   await load()
 }
 
-watch(showNodeSelector, (v) => { if (v) loadUnassignedNodes() })
+async function copyTemplate(row: Template) {
+  await ElMessageBox.confirm(`确定复制模板"${row.name}"吗？将创建一个名称前缀为"（复制）"的新模板，并同步复制所有节点。`, '提示', { type: 'info' })
+  await apiPost(`/api/admin/templates/${row.id}/copy`)
+  ElMessage.success('模板已复制')
+  await load()
+}
 
 onMounted(load)
 </script>
+
+<style scoped>
+.node-row {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ebeef5;
+  background: #fff;
+  transition: background 0.2s;
+}
+.node-row:hover {
+  background: #f5f7fa;
+}
+.node-row.dragging {
+  background: #ecf5ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.drag-handle {
+  cursor: grab;
+  margin-right: 8px;
+  font-size: 16px;
+  color: #909399;
+  user-select: none;
+}
+.drag-handle:active {
+  cursor: grabbing;
+}
+.node-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #409eff;
+  color: #fff;
+  font-size: 12px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+.node-name {
+  flex: 1;
+  font-size: 14px;
+  margin-right: 8px;
+}
+.node-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+</style>
