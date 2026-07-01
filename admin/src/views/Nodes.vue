@@ -163,7 +163,7 @@ const form = reactive({
   min_photos: 0,
   require_text: false,
   allow_abnormal: false,
-  require_live_capture: true,
+  require_live_capture: false,
   is_required: '1',
   is_mandatory: '1',
   timeout_second: 0,
@@ -202,7 +202,7 @@ function openCreate() {
   Object.assign(form, {
     name: '', node_type: 'text', description: '', node_desc: '',
     min_photos: 0, require_text: false, allow_abnormal: false,
-    require_live_capture: true, is_required: '1', is_mandatory: '1',
+    require_live_capture: false, is_required: '1', is_mandatory: '1',
     timeout_second: 0, remark: ''
   })
   dialogVisible.value = true

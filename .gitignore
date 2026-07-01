@@ -14,4 +14,3 @@ server/*.exe
 server/cmd/fix_empty_bool/
 server/cmd/fix_nodes/
 server/cmd/verify_nodes/
-server/internal/reports/
